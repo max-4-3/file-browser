@@ -6,13 +6,19 @@ import uvicorn
 import asyncio
 import os
 from src.data_store import update_video_data
-from src.utils.helpers import make_data, load_data
+from src.utils.helpers import make_data, load_data, reload_data
 from src import DATA_FOLDER
 
 app = FastAPI()
 
 # Mount static files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Endpoint to reload
+@app.post('/update')
+async def update_data_store():
+    await reload_data()
+    return "Ok"
 
 # Serve index.html at root
 @app.get("/", response_class=FileResponse)
@@ -30,6 +36,7 @@ async def load_video_data():
     else:
         data = await make_data()
     update_video_data(data)
+
 
 app.include_router(videos.router, prefix='/api')
 app.include_router(thumbnails.router, prefix='/api')

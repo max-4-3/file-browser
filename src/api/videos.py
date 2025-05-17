@@ -32,7 +32,8 @@ async def get_videos():
         videos = [
             VideoPreview(
                 id = id,
-                title = d.get('title')
+                title = d.get('title'),
+                modified_time = d.get('m_time')
             ) for id, d in zip(data.keys(), data.values())
         ]
     )

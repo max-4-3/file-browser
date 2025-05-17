@@ -22,58 +22,61 @@ async def extract_thumbnail(video_path: str, thumbnail_base_name: Optional[str] 
         return False
 
     try:
-        # Step 1: Check for attached thumbnail stream using ffprobe
-        probe_cmd = [
-            "ffprobe",
-            "-v",
-            "error",
-            "-select_streams",
-            "v",
-            "-show_entries",
-            "stream=index,disposition",
-            "-of",
-            "csv=p=0",
-            video_path,
-        ]
-        probe_process = await asyncio.create_subprocess_exec(  # Use asyncio
-            *probe_cmd,
-            stdout=asyncio.subprocess.PIPE,  # Use asyncio
-            stderr=asyncio.subprocess.PIPE,  # Use asyncio
-        )
-        probe_output, probe_stderr = await probe_process.communicate()  # Use asyncio
+        # # Step 1: Check for attached thumbnail stream using ffprobe
+        # probe_cmd = [
+        #     "ffprobe",
+        #     "-v",
+        #     "error",
+        #     "-select_streams",
+        #     "v",
+        #     "-show_entries",
+        #     "stream=index:disposition_tags",
+        #     "-of",
+        #     "csv=p=0",
+        #     "-hide_banner",
+        #     video_path,
+        # ]
+        # probe_process = await asyncio.create_subprocess_exec(  # Use asyncio
+        #     *probe_cmd,
+        #     stdout=asyncio.subprocess.PIPE,  # Use asyncio
+        #     stderr=asyncio.subprocess.PIPE,  # Use asyncio
+        # )
+        # probe_output, probe_stderr = await probe_process.communicate()  # Use asyncio
 
-        if probe_process.returncode != 0:
-            print(
-                f"[Error] ffprobe failed with exit code {probe_process.returncode}:"
-                f" [cyan]{' '.join(probe_cmd)}[/cyan]"
-            )
-            if probe_stderr:
-                print(f"[Error] ffprobe stderr: {probe_stderr.decode('utf-8').strip()}")
-            return False
+        # if probe_process.returncode != 0:
+        #     print(
+        #         f"[Error] ffprobe failed with exit code {probe_process.returncode}:"
+        #         f" [cyan]{' '.join(probe_cmd)}[/cyan]"
+        #     )
+        #     if probe_stderr:
+        #         print(f"[Error] ffprobe stderr: {probe_stderr.decode('utf-8').strip()}")
+        #     return False
 
-        probe_output_str = probe_output.decode("utf-8").strip()  # Decode once
-        probe_lines = probe_output_str.splitlines()
+        # print(f"{probe_output = }; {probe_output.decode('utf-8') = }")
+        # exit(0)
+        # probe_output_str = probe_output.decode("utf-8").strip()  # Decode once
+        # probe_lines = probe_output_str.splitlines()
+        # attached_index = None
 
-        attached_index = None
-        for line in probe_lines:
-            parts = line.split(",")
-            if len(parts) >= 2 and parts[1] == "1":  # disposition:attached_pic == 1
-                attached_index = parts[0]
-                break
+        # for line in probe_lines:
+        #     index_str, disp_str = line.split("|", 1)
+        #     if int(disp_str) & 32:  # 32 is the attached_pic bit
+        #         attached_index = index_str
+        #         break
 
         # Create a thumbnail output path
         os.makedirs(THUMB_PATH, exist_ok=True)
         thumb_filename = f"{thumbnail_base_name if thumbnail_base_name else uuid4().hex}_thumb.png"
         tmp_path = os.path.join(THUMB_PATH, thumb_filename)
 
-        if attached_index is not None:
+        if False:
             extract_cmd = [
                 "ffmpeg",
                 "-y",
                 "-i",
                 video_path,
                 "-map",
-                f"0:v:{attached_index}",
+                f"0:v:{int(attached_index)}",
                 "-c:v",
                 "png",
                 "-frames:v",
