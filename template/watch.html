@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Video Player</title>
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      /* ================ */
+      /* === VARIABLES === */
+      /* ================ */
+      :root {
+        /* Colors */
+        --primary: #4361ee;
+        --primary-hover: #3a56d4;
+        --dark: #212529;
+        --darker: #121212;
+        --light: #f8f9fa;
+        --light-gray: #e9ecef;
+        --gray: #6c757d;
+        --dark-gray: #343a40;
+        --danger: #ef233c;
+        --danger-hover: #d90429;
+        --success: #4cc9f0;
+
+        /* Spacing */
+        --space-xs: 0.25rem;
+        --space-sm: 0.5rem;
+        --space-md: 1rem;
+        --space-lg: 1.5rem;
+        --space-xl: 2rem;
+        --space-xxl: 3rem;
+
+        /* Typography */
+        --text-sm: 0.875rem;
+        --text-base: 1rem;
+        --text-md: 1.25rem;
+        --text-lg: 1.5rem;
+        --text-xl: 2rem;
+
+        /* Borders */
+        --radius-sm: 4px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --radius-xl: 16px;
+
+        /* Shadows */
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+        --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+        --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+        --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1);
+
+        /* Transitions */
+        --transition-fast: 0.15s ease;
+        --transition-normal: 0.3s ease;
+        --transition-slow: 0.5s ease;
+      }
+
+      /* ============= */
+      /* === RESET === */
+      /* ============= */
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+        background-color: var(--darker);
+        color: var(--light);
+        line-height: 1.5;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      /* ================== */
+      /* === BACK BUTTON == */
+      /* ================== */
+
+      .back-button {
+        /* position: fixed; Fix the button to the top left
+        top: 10px;
+        left: 10px; */
+        /* z-index: 10; Ensure it's above other elements */
+        background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+        color: #fff;
+        margin: 10px 20px;
+        border: none;
+        padding: 8px 12px; /* Slightly smaller padding */
+        border-radius: 25px; /* Fully rounded corners */
+        cursor: pointer;
+        font-size: 16px;
+        transition: background-color 0.3s ease; /* Smooth transition */
+        display: flex; /* Use flexbox for icon alignment */
+        align-items: center; /* Vertically center icon and text */
+        justify-content: center;
+        text-align: center;
+        gap: 8px; /* Space between icon and text */
+        transition: all 0.4s ease;
+      }
+
+      .back-button:hover {
+        /* background-color: rgba(0, 0, 0, 0.7); Slightly darker on hover */
+        color: rgba(0, 0, 0);
+        background-color: rgba(255, 255, 255);
+        transform: scale(1.02);
+      }
+
+      .back-button i {
+        /* margin-right: 0; Remove default margin */
+        font-size: 18px; /* Adjust icon size */
+      }
+
+      /* ================== */
+      /* === UTILITIES === */
+      /* ================== */
+      .container {
+        width: 90%;
+        max-width: 1200px;
+        margin: var(--space-xxl) auto;
+        padding: 0 var(--space-md);
+      }
+
+      .flex {
+        display: flex;
+      }
+
+      .flex-center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .grid {
+        display: grid;
+      }
+
+      .text-center {
+        text-align: center;
+      }
+
+      /* ================= */
+      /* === COMPONENTS === */
+      /* ================= */
+
+      /* === VIDEO CONTAINER === */
+      .video-container {
+        position: relative;
+        margin-bottom: var(--space-xxl);
+      }
+
+      /* === LOADING STATE === */
+      .video-loading {
+        position: relative;
+        background: var(--dark);
+        aspect-ratio: 16/9;
+        border-radius: var(--radius-lg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-md);
+      }
+
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top-color: var(--primary);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      /* === ERROR STATE === */
+      .video-error {
+        background: var(--dark);
+        aspect-ratio: 16/9;
+        border-radius: var(--radius-lg);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-md);
+        padding: var(--space-xl);
+        text-align: center;
+      }
+
+      .video-error-icon {
+        font-size: 3rem;
+        color: var(--danger);
+      }
+
+      .retry-button {
+        background-color: var(--danger);
+        color: white;
+        padding: var(--space-sm) var(--space-md);
+        border-radius: var(--radius-sm);
+        transition: background-color var(--transition-fast);
+        margin-top: var(--space-md);
+      }
+
+      .retry-button:hover {
+        background-color: var(--danger-hover);
+      }
+
+      /* === PLAYER STYLES === */
+      .plyr {
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        box-shadow: var(--shadow-xl);
+        background: #000;
+        width: 100%;
+      }
+
+      /* Customize Plyr controls */
+      .plyr__controls {
+        background: linear-gradient(transparent, rgba(0, 0, 0, 0.7)) !important;
+      }
+
+      .plyr__progress__buffer {
+        background: rgba(255, 255, 255, 0.2) !important;
+      }
+
+      .plyr--video .plyr__control:hover {
+        background: var(--primary) !important;
+      }
+
+      .plyr__menu__container .plyr__control[role="menuitemradio"]:hover {
+        background: rgba(67, 97, 238, 0.1) !important;
+      }
+
+      /* === VIDEO LIBRARY === */
+      .video-library {
+        margin-top: var(--space-xxl);
+        padding: var(--space-md) 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .library-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--space-lg);
+      }
+
+      .library-title {
+        font-size: var(--text-lg);
+        font-weight: 600;
+      }
+
+      .refresh-button {
+        color: var(--light);
+        background: rgba(255, 255, 255, 0.1);
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all var(--transition-fast);
+      }
+
+      .refresh-button:hover {
+        background: var(--primary);
+        transform: rotate(90deg);
+      }
+
+      /* === VIDEO GRID === */
+      .video-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: var(--space-lg);
+      }
+
+      .grid-placeholder {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: var(--space-lg);
+      }
+
+      .placeholder-card {
+        background: var(--dark);
+        border-radius: var(--radius-md);
+        aspect-ratio: 16/9;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .placeholder-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.05),
+          transparent
+        );
+        animation: shimmer 1.5s infinite;
+      }
+
+      /* === VIDEO CARD === */
+      .card {
+        background: var(--dark);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        transition: transform var(--transition-normal),
+          box-shadow var(--transition-normal);
+        box-shadow: var(--shadow-md);
+      }
+
+      .card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .card-link {
+        display: block;
+      }
+
+      .card-thumbnail {
+        position: relative;
+      }
+
+      .card-thumbnail img {
+        width: 100%;
+        aspect-ratio: 16/9;
+        object-fit: contain;
+        background: black;
+      }
+
+      .play-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: rgba(0, 0, 0, 0.3);
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+      }
+
+      .card:hover .play-overlay {
+        opacity: 1;
+      }
+
+      .play-overlay i {
+        font-size: 2rem;
+        color: white;
+        background: rgba(0, 0, 0, 0.7);
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .duration-badge {
+        position: absolute;
+        bottom: var(--space-sm);
+        right: var(--space-sm);
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 0.2rem 0.4rem;
+        border-radius: var(--radius-sm);
+        font-size: var(--text-sm);
+      }
+
+      .video-info {
+        padding: var(--space-md);
+      }
+
+      .title {
+        font-size: var(--text-base);
+        font-weight: 500;
+        margin-bottom: var(--space-xs);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .video-views {
+        font-size: var(--text-sm);
+        color: var(--gray);
+      }
+
+      /* === ERROR STATES === */
+      .fetch-error {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-sm);
+        padding: var(--space-xl);
+        color: var(--danger);
+      }
+
+      .text-button {
+        color: var(--primary);
+        background: none;
+        border: none;
+        cursor: pointer;
+        text-decoration: underline;
+      }
+
+      .no-videos {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: var(--space-xl);
+        color: var(--gray);
+      }
+
+      /* ================ */
+      /* === ANIMATIONS === */
+      /* ================ */
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes shimmer {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(100%);
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      /* ====================== */
+      /* === MEDIA QUERIES === */
+      /* ====================== */
+      @media (max-width: 1024px) {
+        .video-grid {
+          grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        }
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          width: 95%;
+          padding: 0;
+          margin: var(--space-xl) auto;
+        }
+
+        .plyr__time {
+          display: none;
+        }
+
+        .video-grid {
+          grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+          gap: var(--space-md);
+        }
+
+        .video-info {
+          padding: var(--space-sm);
+        }
+      }
+
+      @media (max-width: 480px) {
+        .video-grid {
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        }
+
+        .title {
+          font-size: var(--text-sm);
+        }
+
+        .library-title {
+          font-size: var(--text-md);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <button class="back-button" onclick="window.location.href='/'">
+      <i class="fas fa-home"></i> Home
+    </button>
+
+    <div class="container">
+      <div class="video-container">
+        <div id="loadingState" class="video-loading" style="display: none">
+          <div class="loading-spinner"></div>
+          <p>Loading video...</p>
+        </div>
+
+        <div id="errorState" class="video-error" style="display: none">
+          <div class="video-error-icon">
+            <i class="fas fa-exclamation-triangle"></i>
+          </div>
+          <h3>Failed to load video</h3>
+          <p id="errorMessage">An unknown error occurred</p>
+          <button id="retryButton" class="retry-button">Retry</button>
+        </div>
+
+        <video id="player" playsinline controls style="display: none">
+          <!-- Source will be added by JavaScript -->
+        </video>
+      </div>
+
+      <div class="video-library">
+        <div class="library-header">
+          <h2 class="library-title">More Videos</h2>
+          <div class="library-actions">
+            <button
+              class="refresh-button"
+              id="refreshVideos"
+              title="Refresh videos"
+            >
+              <i class="fas fa-sync-alt"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="video-grid" id="videoGrid">
+          <!-- Videos will be inserted here by JavaScript -->
+          <div class="grid-placeholder">
+            <div class="placeholder-card"></div>
+            <div class="placeholder-card"></div>
+            <div class="placeholder-card"></div>
+            <div class="placeholder-card"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Get elements
+        const playerElement = document.getElementById("player");
+        const loadingState = document.getElementById("loadingState");
+        const errorState = document.getElementById("errorState");
+        const errorMessage = document.getElementById("errorMessage");
+        const retryButton = document.getElementById("retryButton");
+        const refreshButton = document.getElementById("refreshVideos");
+        const videoGrid = document.getElementById("videoGrid");
+
+        // Get video ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const videoId = urlParams.get("id");
+
+        if (!videoId) {
+          showError("Error: No video ID provided");
+          return;
+        }
+
+        // Initialize player
+        let player;
+
+        function initializePlayer() {
+          loadingState.style.display = "flex";
+          errorState.style.display = "none";
+          playerElement.style.display = "none";
+
+          try {
+            player = new Plyr("#player", {
+              autoplay: false,
+              seekTime: 10,
+              debug: false,
+              iconUrl: "https://cdn.plyr.io/3.7.8/plyr.svg",
+              blankVideo: "https://cdn.plyr.io/static/blank.mp4",
+            });
+
+            // Set video source
+            player.source = {
+              type: "video",
+              sources: [
+                {
+                  src: `/api/video?video_id=${videoId}`,
+                  type: "video/mp4",
+                },
+              ],
+              poster: `/api/thumbnail?video_id=${videoId}`,
+            };
+
+            player.on("ready", () => {
+              loadingState.style.display = "none";
+              playerElement.style.display = "block";
+            });
+
+            player.on("play", () => {
+              // Analytics or other play event handling
+            });
+          } catch (err) {
+            showError(`Player initialization failed: ${err.message}`);
+          }
+        }
+
+        // Error handling
+        function showError(message) {
+          console.error(message);
+          loadingState.style.display = "none";
+          playerElement.style.display = "none";
+          errorState.style.display = "flex";
+          errorMessage.textContent = message;
+        }
+
+        retryButton.addEventListener("click", initializePlayer);
+        initializePlayer();
+
+        // Video library functions
+        async function fetchVideos() {
+          try {
+            videoGrid.innerHTML = `
+        <div class="grid-placeholder">
+          <div class="placeholder-card"></div>
+          <div class="placeholder-card"></div>
+          <div class="placeholder-card"></div>
+          <div class="placeholder-card"></div>
+        </div>
+      `;
+
+            const res = await fetch("/api/videos");
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+            const data = await res.json();
+            renderVideos(data.videos);
+          } catch (error) {
+            console.error("Failed to fetch videos:", error);
+            videoGrid.innerHTML = `
+        <div class="fetch-error">
+          <i class="fas fa-exclamation-circle"></i>
+          <p>Failed to load videos. <button class="text-button" id="retryFetch">Retry</button></p>
+        </div>
+      `;
+            document
+              .getElementById("retryFetch")
+              .addEventListener("click", fetchVideos);
+          }
+        }
+
+        function renderVideos(videos) {
+          if (!videos || videos.length === 0) {
+            videoGrid.innerHTML =
+              '<div class="no-videos">No videos available</div>';
+            return;
+          }
+
+          videoGrid.innerHTML = "";
+          videos.forEach((video) => {
+            if (video.id != videoId) {
+              const card = document.createElement("div");
+              card.className = "card";
+              card.innerHTML = `
+          <a href="watch?id=${video.id}" class="card-link">
+            <div class="card-thumbnail">
+              <img src="/api/thumbnail?video_id=${video.id}" alt="${
+                video.title
+              }" loading="lazy" />
+              <div class="play-overlay"><i class="fas fa-play"></i></div>
+              ${
+                video.duration
+                  ? `<div class="duration-badge">${video.duration}</div>`
+                  : ""
+              }
+            </div>
+            <div class="video-info">
+              <h3 class="title">${video.title}</h3>
+              ${
+                video.views
+                  ? `<div class="video-views">${video.views} views</div>`
+                  : ""
+              }
+            </div>
+          </a>
+        `;
+              videoGrid.appendChild(card);
+            }
+          });
+        }
+
+        refreshButton.addEventListener("click", fetchVideos);
+        fetchVideos();
+      });
+    </script>
+  </body>
+</html>
