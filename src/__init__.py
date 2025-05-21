@@ -1,4 +1,4 @@
 ALLOWED_FILES = {'.mp4'}
-ROOT_DIRS = [r"D:\Programs\Python\Files\Downloads\Videos"]
-DATA_FOLDER = r"D:\Programs\Web\FileBrowser\data"
-THUMB_PATH = r"D:\Programs\Web\FileBrowser\static\.thumbs"
+ROOT_DIRS = ["/home/max/Downloads"]
+DATA_FOLDER = r"/home/max/Extras/web/file-browser/data"
+THUMB_PATH = r"/home/max/Extras/web/file-browser/static/.thumbs"

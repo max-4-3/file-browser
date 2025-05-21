@@ -11,3 +11,5 @@ wheels/
 *.png
 *.jpg
 *.json
+.thumbs/*
+
