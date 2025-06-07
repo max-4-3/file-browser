@@ -1,11 +1,9 @@
-import os, json, logging
+import os, json
 from uuid import uuid4
 from rich import print
 from src.utils.video_processing import extract_thumbnail
 from src.data_store import get_video_data, update_video_data
 from src import ALLOWED_FILES, ROOT_DIRS, DATA_FOLDER
-
-logging.basicConfig(filename="helpers.log", filemode="a", level=logging.DEBUG)
 
 
 def save_data(data, fp):
@@ -22,16 +20,11 @@ async def make_data():
     ummm = []
 
     for root_dir in ROOT_DIRS:
-        logging.debug(f"Finding videos in {root_dir}...")
         for root, _, files in os.walk(root_dir):
             for file in files:
-                logging.debug(f"Validating file: {file} in {root}")
                 name, ext = os.path.splitext(file)
 
                 if (not ext) or (ext not in ALLOWED_FILES):
-                    logging.warning(
-                        f"file: {file}; doesn't meat the criteria: { not ext } or { ext not in ALLOWED_FILES }"
-                    )
                     continue
 
                 print(f"[[green]+[/green]] {name + ext}")
@@ -47,7 +40,6 @@ async def make_data():
         vid_id = uuid4().hex
         thumb_path = await extract_thumbnail(file, vid_id)
         if not thumb_path:
-            logging.warning(f"Unable to create thumbnail for: {file}")
             continue
 
         data[vid_id] = {
@@ -68,20 +60,14 @@ async def reload_data():
     new_files = []
 
     for root_path in ROOT_DIRS:
-        logging.debug(f"Finding videos in {root_path}...")
         for root, _, files in os.walk(root_path):
             for file in files:
-                logging.debug(f"Validating file: {file} in {root}")
                 name, ext = os.path.splitext(file)
 
                 if name in file_names:
-                    logging.warning(f"File: {file}; alraedy exists in db.")
                     continue
 
                 if (not ext) or (ext not in ALLOWED_FILES):
-                    logging.warning(
-                        f"file: {file}; doesn't meat the criteria: { not ext } or { ext not in ALLOWED_FILES }"
-                    )
                     continue
 
                 print(f"[[green]+[/green]] {name + ext}")
@@ -92,7 +78,6 @@ async def reload_data():
         print(f"Making thumbnail for: {os.path.basename(file)}")
         thumb_path = await extract_thumbnail(file, vid_id)
         if not thumb_path:
-            logging.warning(f"Unable to create thumbnail for: {file}")
             continue
         data[vid_id] = {
             "id": vid_id,
@@ -105,4 +90,3 @@ async def reload_data():
     update_video_data(data)
     save_data(data, os.path.join(DATA_FOLDER, "video_data.json"))
     return data
-
