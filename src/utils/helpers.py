@@ -1,4 +1,6 @@
-import os, json, asyncio
+import os
+import json
+import asyncio
 from uuid import uuid4
 from rich import print
 from src.utils.video_processing import extract_thumbnail
@@ -24,10 +26,10 @@ async def _process_video(vid_path: str) -> dict:
 
     return {
         "id": vid_id,
-        "title": os.path.splitext(os.path.basename(file))[0],
+        "title": os.path.splitext(os.path.basename(vid_path))[0],
         "thumb_path": thumb_path,
-        "video_path": file,
-        "m_time": os.path.getmtime(file),
+        "video_path": vid_path,
+        "m_time": os.path.getmtime(vid_path),
     }
 
 
@@ -84,7 +86,7 @@ async def reload_data():
             for file in files:
                 name, ext = os.path.splitext(file)
 
-                if name in file_names:  # Already exists
+                if name in filenames:  # Already exists
                     continue
 
                 if (not ext) or (ext not in ALLOWED_FILES):
@@ -92,6 +94,10 @@ async def reload_data():
 
                 print(f"[bold green] File Added: {name + ext}[/green bold]")
                 new_files.append(os.path.join(root, name + ext))
+
+    async def proc_wrapper(before: str, *args, **kwargs):
+        print(before)
+        return await _process_video(*args, **kwargs)
 
     tasks = [asyncio.create_task(proc_wrapper(f"Making thumbnail for: {os.path.basename(file)}", file)) for file in new_files]
     for vid_data in await asyncio.gather(*tasks):
