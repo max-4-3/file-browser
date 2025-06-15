@@ -11,7 +11,6 @@ async def get_thumbnail(video_id: str):
     video_data = data.get(video_id)
     if not video_data:
         raise HTTPException(400, detail="Unable to find video's info related to id: {}".format(video_id))
-
     
     fp = video_data.get('thumb_path')
     if not fp:

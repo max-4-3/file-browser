@@ -91,6 +91,24 @@
         text-overflow: ellipsis;
         height: 3em;
       }
+      .spinner {
+        border: 2px solid #ccc;
+        border-top: 2px solid #fff;
+        border-radius: 50%;
+        width: 14px;
+        height: 14px;
+        animation: spin 0.8s linear infinite;
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 8px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
     </style>
   </head>
   <body>
@@ -98,7 +116,7 @@
       <h1>Video Library</h1>
       <div class="buttons">
         <button class="sort-btn" id="sortBtn">⬆️ Sort Newest</button>
-        <button class="reload-btn" id="reloadBtn">🔄 Reload</button>
+        <button class="reload-btn" id="reloadBtn">🔄 <span id="reloadText">Reload</span></button>
       </div>
     </div>
 
@@ -156,6 +174,16 @@
       });
 
       document.getElementById("reloadBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("reloadBtn");
+        const textSpan = document.getElementById("reloadText");
+
+        const ogTxt = textSpan.textContent;
+
+        textSpan.textContent = "Reloading...";
+        const spinner = document.createElement("span");
+        spinner.className = "spinner";
+        textSpan.after(spinner);
+
         try {
           const response = await fetch("/reload", { method: "POST" });
           if (response.ok) {
@@ -166,6 +194,9 @@
         } catch (err) {
           console.error("Fetch failed:", err);
           alert("Request failed");
+        } finally {
+          spinner.remove();
+          textSpan.textContent = ogTxt;
         }
       });
 

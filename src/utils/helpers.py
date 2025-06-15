@@ -1,4 +1,4 @@
-import os, json
+import os, json, asyncio
 from uuid import uuid4
 from rich import print
 from src.utils.video_processing import extract_thumbnail
@@ -16,8 +16,23 @@ def load_data(fp):
         return json.load(file)
 
 
+async def _process_video(vid_path: str) -> dict:
+    vid_id = uuid4().hex
+    thumb_path = await extract_thumbnail(vid_path, vid_id)
+    if not thumb_path:
+        return None
+
+    return {
+        "id": vid_id,
+        "title": os.path.splitext(os.path.basename(file))[0],
+        "thumb_path": thumb_path,
+        "video_path": file,
+        "m_time": os.path.getmtime(file),
+    }
+
+
 async def make_data():
-    ummm = []
+    files_to_add = []
 
     for root_dir in ROOT_DIRS:
         for root, _, files in os.walk(root_dir):
@@ -28,65 +43,63 @@ async def make_data():
                     continue
 
                 print(f"[[green]+[/green]] {name + ext}")
-                ummm.append(os.path.join(root, file))
+                files_to_add.append(os.path.join(root, file))
 
-    if not ummm:
+    if not files_to_add:
         return
 
-    data = {}
     os.makedirs(DATA_FOLDER, exist_ok=True)
-    for file in ummm:
-        print(f"Making thumbnail for: {os.path.basename(file)}")
-        vid_id = uuid4().hex
-        thumb_path = await extract_thumbnail(file, vid_id)
-        if not thumb_path:
-            continue
 
-        data[vid_id] = {
-            "id": vid_id,
-            "title": os.path.splitext(os.path.basename(file))[0],
-            "thumb_path": thumb_path,
-            "video_path": file,
-            "m_time": os.path.getmtime(file),
-        }
+    async def proc_wrapper(before: str, *args, **kwargs):
+        print(before)
+        return await _process_video(*args, **kwargs)
+
+    tasks = [asyncio.create_task(proc_wrapper(f"Making thumbnail for: {os.path.basename(file)}", file)) for file in files_to_add]
+    data = {vid_data["id"]:vid_data for vid_data in (await asyncio.gather(*tasks)) if vid_data}
 
     save_data(data, os.path.join(DATA_FOLDER, "video_data.json"))
     return data
 
 
 async def reload_data():
-    data = get_video_data()
-    file_names = [a["title"] for a in data.values()]
-    new_files = []
 
+    data = {}
+    filenames = []
+
+    # This creates a new "data" dict without files that doesn't exist
+    for vid_data in get_video_data().values():
+        vid_path = vid_data["video_path"]
+        if not os.path.exists(vid_path):
+            if os.path.exists(vid_data["thumb_path"]):
+                os.remove(vid_data["thumb_path"])
+            print(f"[red bold]File Removed: {vid_data["title"]}[!Exist][/bold red]")
+            continue
+        filenames.append(vid_data["title"])
+        data[vid_data["id"]] = {k:v for k, v in vid_data.items()}
+
+
+    new_files = []
     for root_path in ROOT_DIRS:
         for root, _, files in os.walk(root_path):
             for file in files:
                 name, ext = os.path.splitext(file)
 
-                if name in file_names:
+                if name in file_names:  # Already exists
                     continue
 
                 if (not ext) or (ext not in ALLOWED_FILES):
                     continue
 
-                print(f"[[green]+[/green]] {name + ext}")
+                print(f"[bold green] File Added: {name + ext}[/green bold]")
                 new_files.append(os.path.join(root, name + ext))
 
-    for file in new_files:
-        vid_id = uuid4().hex
-        print(f"Making thumbnail for: {os.path.basename(file)}")
-        thumb_path = await extract_thumbnail(file, vid_id)
-        if not thumb_path:
+    tasks = [asyncio.create_task(proc_wrapper(f"Making thumbnail for: {os.path.basename(file)}", file)) for file in new_files]
+    for vid_data in await asyncio.gather(*tasks):
+        if not vid_data:
             continue
-        data[vid_id] = {
-            "id": vid_id,
-            "title": os.path.splitext(os.path.basename(file))[0],
-            "thumb_path": thumb_path,
-            "video_path": file,
-            "m_time": os.path.getmtime(file),
-        }
+        data[vid_data["id"]] = vid_data
 
     update_video_data(data)
     save_data(data, os.path.join(DATA_FOLDER, "video_data.json"))
+
     return data

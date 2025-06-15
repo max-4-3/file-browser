@@ -1,7 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from src.data_store import get_video_data
 from fastapi.responses import FileResponse
-from rich import print
 from src.models import Directory, VideoPreview
 
 router = APIRouter()
