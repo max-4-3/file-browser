@@ -140,7 +140,6 @@
 			/* background-color: rgba(0, 0, 0, 0.7); Slightly darker on hover */
 			color: rgba(0, 0, 0);
 			background-color: rgba(255, 255, 255);
-			transform: scale(1.02);
 		}
 
 		.back-button i {
@@ -637,7 +636,13 @@
 						// Analytics or other play event handling
 					});
 				} catch (err) {
-					showError(`Player initialization failed: ${err.message}`);
+					// showError(`Player initialization failed: ${err.message}`);
+					playerElement.className = "video";
+					playerElement.style.width = "100%";
+					playerElement.style.height = "100%";
+					playerElement.src = `/api/video?video_id=${videoId}`;
+					loadingState.style.display = "none";
+					playerElement.style.display = "block";
 				}
 			}
 
