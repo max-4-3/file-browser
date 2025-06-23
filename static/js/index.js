@@ -6,6 +6,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const res = await fetch("/api/videos");
         const data = await res.json();
         videos = data.videos;
+		document.getElementById("vidCount").innerText = `${videos.length} Videos`
         renderVideos();
     }
 

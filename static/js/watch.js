@@ -101,7 +101,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const data = await res.json();
             videos = data.videos;
-            renderVideos(videos);
+			document.getElementById("vidCount").innerText = `${videos.length} Videos`
+			renderVideos(videos);
         } catch (error) {
             console.error("Failed to fetch videos:", error);
             videoGrid.innerHTML = `
