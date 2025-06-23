@@ -49,8 +49,6 @@ async def get_stat(video_id: str):
     if not fp:
         raise HTTPException(404, detail="File doesn't exist on server!")
   
-    print(video_data)
-
     return VideoPreview(
         id=video_data["id"], title=video_data["title"], modified_time=video_data["m_time"]
     )
