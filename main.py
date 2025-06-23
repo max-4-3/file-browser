@@ -25,13 +25,13 @@ async def update_data_store():
 # Serve index.html at root
 @app.get("/", response_class=FileResponse)
 async def read_root():
-    return FileResponse("template/index.html")
+    return FileResponse("pages/index.html")
 
 
 # Serve watch.html at /watch
 @app.get("/watch", response_class=FileResponse)
 async def watch_video():
-    return FileResponse("template/watch.html")
+    return FileResponse("pages/watch.html")
 
 
 async def load_video_data():
