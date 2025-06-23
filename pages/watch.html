@@ -1,72 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
 
-    <head>
-        <meta charset="UTF-8"/>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <meta name="color-scheme" content="dark"/>
-        <title>Video Player</title>
-        <link
-        rel="icon" type="image/x-icon" href="./static/icon.png"/>
-        <!-- <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /> -->
-        <link rel="stylesheet" href="./static/css/watch.css">
-    </head>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="color-scheme" content="dark" />
+	<title>Video Player</title>
 
-    <body>
-        <div class="top-bar">
-            <h1 class="home-button" onclick="window.location.href='/'">
-                🏠 Home
-            </h1>
-        </div>
-        <div class="container">
-            <div class="video-container">
-                <div id="loadingState" class="video-loading" style="display: none">
-                    <div class="loading-spinner"></div>
-                    <p>Loading video...</p>
-                </div>
+	<!-- Other Files -->
+	<!-- 
+		<link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /> 
+        <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
+		-->
 
-                <div id="errorState" class="video-error" style="display: none">
-                    <div class="video-error-icon">
-                        <i class="fas fa-exclamation-triangle"></i>
-                    </div>
-                    <h3>Failed to load video</h3>
-                    <p id="errorMessage">An unknown error occurred</p>
-                    <button id="retryButton" class="retry-button">Retry</button>
-                </div>
+	<!-- Static Files -->
+	<link rel="icon" type="image/x-icon" href="./static/icon.png" />
+	<link rel="stylesheet" href="./static/css/watch.css">
+	<script src="./static/js/watch.js" type="module"></script>
+</head>
 
-                <video
-                    id="player" playsinline controls style="display: none"><!-- Source will be added by JavaScript -->
-                </video>
-            </div>
+<body>
+	<div class="top-bar">
+		<h1 class="home-button" onclick="window.location.href='/'">
+			🏠 Home
+		</h1>
+	</div>
+	<div class="container">
+		<div class="video-container">
+			<div id="loadingState" class="video-loading" style="display: none">
+				<div class="loading-spinner"></div>
+				<p>Loading video...</p>
+			</div>
 
-            <div class="video-library">
-                <div class="library-header">
-                    <h2 class="library-title">More Videos</h2>
-                    <div class="library-actions">
-                        <button class="refresh-button" id="refreshVideos" title="Refresh videos">
-                            🔄
-                        </button>
-                        <button class="sort-button" id="sortBtn" title="Sort button">
-                            👇🏻👶🏻
-                        </button>
-                    </div>
-                </div>
+			<div id="errorState" class="video-error" style="display: none">
+				<div class="video-error-icon">
+					<i class="fas fa-exclamation-triangle"></i>
+				</div>
+				<h3>Failed to load video</h3>
+				<p id="errorMessage">An unknown error occurred</p>
+				<button id="retryButton" class="retry-button">Retry</button>
+			</div>
 
-                <div
-                    class="video-grid" id="videoGrid">
-                    <!-- Videos will be inserted here by JavaScript -->
-                    <div class="grid-placeholder">
-                        <div class="placeholder-card"></div>
-                        <div class="placeholder-card"></div>
-                        <div class="placeholder-card"></div>
-                        <div class="placeholder-card"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+			<video id="player" playsinline controls style="display: none"><!-- Source will be added by JavaScript -->
+			</video>
+		</div>
 
-        <!-- <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script> -->
-        <script type="module" src="./static/js/watch.js"></script>
-    </body>
+		<div class="video-library">
+			<div class="library-header">
+				<h2 class="library-title">More Videos</h2>
+				<div class="library-actions">
+					<button class="refresh-button" id="refreshVideos" title="Refresh videos">
+						🔄
+					</button>
+					<button class="sort-button" id="sortBtn" title="Sort button">
+						👇🏻👶🏻
+					</button>
+				</div>
+			</div>
+
+			<div class="video-grid" id="videoGrid">
+				<!-- Videos will be inserted here by JavaScript -->
+				<div class="grid-placeholder">
+					<div class="placeholder-card"></div>
+					<div class="placeholder-card"></div>
+					<div class="placeholder-card"></div>
+					<div class="placeholder-card"></div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+</body>
+
 </html>
