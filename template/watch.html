@@ -6,18 +6,19 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
         <meta name="color-scheme" content="dark"/>
         <title>Video Player</title>
-        <link rel="icon" type="image/x-icon" href="static/icon.png"/>
+        <link
+        rel="icon" type="image/x-icon" href="./static/icon.png"/>
         <!-- <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
-        	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /> -->
-        <link rel="stylesheet" href="static/css/watch.css">
+                <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" /> -->
+        <link rel="stylesheet" href="./static/css/watch.css">
     </head>
 
     <body>
-        <button class="back-button" onclick="window.location.href='/'">
-            <i class="fas fa-home"></i>
-            Home
-        </button>
-
+        <div class="top-bar">
+            <h1 class="home-button" onclick="window.location.href='/'">
+                🏠 Home
+            </h1>
+        </div>
         <div class="container">
             <div class="video-container">
                 <div id="loadingState" class="video-loading" style="display: none">
@@ -44,9 +45,9 @@
                     <h2 class="library-title">More Videos</h2>
                     <div class="library-actions">
                         <button class="refresh-button" id="refreshVideos" title="Refresh videos">
-                            <i class="fas fa-sync-alt"></i>
+                            🔄
                         </button>
-                        <button class="sort-button" id="sortBtn" title="Sort button" style="padding: 0px 20px; border-radius: 20px;">
+                        <button class="sort-button" id="sortBtn" title="Sort button">
                             👇🏻👶🏻
                         </button>
                     </div>
@@ -66,7 +67,6 @@
         </div>
 
         <!-- <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script> -->
-        <script type="module" src="static/js/watch.js"></script>
+        <script type="module" src="./static/js/watch.js"></script>
     </body>
-
 </html>

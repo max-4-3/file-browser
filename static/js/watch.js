@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async () => {
     // Get elements
     const playerElement = document.getElementById("player");
     const loadingState = document.getElementById("loadingState");
@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Sort
     let sortDescending = true;
+    let videos = [];
 
     if (!videoId) {
         showError("Error: No video ID provided");
@@ -23,6 +24,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Initialize player
     let player;
+
+    async function setPageTitle() {
+        let stat_res = await fetch(`/api/stats?video_id=${videoId}`);
+        let title = await stat_res.json();
+        document.title = title.title;
+    }
 
     function initializePlayer() {
         loadingState.style.display = "flex";
@@ -54,12 +61,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 loadingState.style.display = "none";
                 playerElement.style.display = "block";
             });
-
-            player.on("play", () => {
-                // Analytics or other play event handling
-            });
         } catch (err) {
-            // showError(`Player initialization failed: ${err.message}`);
+            console.error(`Player initialization failed: ${err.message}`);
             playerElement.className = "video";
             playerElement.style.width = "100%";
             playerElement.style.height = "100%";
@@ -97,7 +100,8 @@ document.addEventListener("DOMContentLoaded", function () {
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
             const data = await res.json();
-            renderVideos(data.videos);
+            videos = data.videos;
+            renderVideos(videos);
         } catch (error) {
             console.error("Failed to fetch videos:", error);
             videoGrid.innerHTML = `
@@ -113,6 +117,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function renderVideos(videos) {
+        videoGrid.innerHTML = ""
+
         if (!videos || videos.length === 0) {
             videoGrid.innerHTML =
                 '<div class="no-videos">No videos available</div>';
@@ -155,6 +161,9 @@ document.addEventListener("DOMContentLoaded", function () {
     sortBtn.addEventListener("click", async () => {
         sortBtn.innerText = sortDescending ? "👇🏻🧑🏻" : "👇🏻👶🏻";
         sortDescending = !sortDescending;
-        fetchVideos();
+        renderVideos(videos);
     });
+
+    setPageTitle();
+
 });

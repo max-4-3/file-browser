@@ -1,0 +1,177 @@
+:root {
+    /* Colors */
+    --primary: #4361ee;
+    --primary-hover: #3a56d4;
+    --dark: #212529;
+    --darker: #121212;
+    --light: #f8f9fa;
+    --light-gray: #e9ecef;
+    --gray: #6c757d;
+    --dark-gray: #343a40;
+    --danger: #ef233c;
+    --danger-hover: #d90429;
+    --success: #4cc9f0;
+
+    /* Spacing */
+    --space-xs: 0.25rem;
+    --space-sm: 0.5rem;
+    --space-md: 1rem;
+    --space-lg: 1.5rem;
+    --space-xl: 2rem;
+    --space-xxl: 3rem;
+
+    /* Typography */
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-md: 1.25rem;
+    --text-lg: 1.5rem;
+    --text-xl: 2rem;
+
+    /* Borders */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.42);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.4);
+
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+}
+
+/* ============= */
+/* === RESET === */
+/* ============= */
+*,
+*::before,
+*::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background-color: var(--darker);
+    color: var(--light);
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+
+button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* Default Card Design */
+.card {
+    background: var(--dark);
+    padding: var(--space-sm);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-fast);
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+}
+
+.card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: var(--shadow-lg);
+}
+
+.card img {
+    width: 100%;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+}
+
+.title {
+    margin-top: 10px;
+    font-size: 16px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 3em;
+}
+
+/* Default Cards Grid Style */
+.video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: var(--space-lg);
+	margin-bottom: var(--space-md);
+}
+
+/* Default Refresh & Sort Button Style */
+.refresh-button,
+.sort-button {
+    color: var(--light);
+    background-color: var(--dark);
+    border: none;
+    padding: var(--space-sm);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    font-size: var(--text-base);
+}
+
+.refresh-button:hover,
+.sort-button:hover {
+    background-color: var(--light);
+    color: var(--dark-gray);
+}
+
+/* Default Top Bar and Container ( main ) Styles */
+.container {
+    padding: 0 var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.top-bar {
+	width: 100%;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+    background-color: var(--dark-gray);
+    margin-bottom: var(--space-lg);
+    position: inherit;
+    padding: var(--space-sm);
+    box-shadow: 0 10px 50px rgba(0, 0, 0, .6);
+}
+
+/* Default Home Button */
+.home-button {
+    cursor: pointer;
+}
