@@ -29,6 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const thumb = document.createElement("img");
             thumb.src = `/api/thumbnail?video_id=${video.id}`;
             thumb.alt = video.title;
+            thumb.setAttribute("loading", "lazy");
 
             const title = document.createElement("div");
             title.className = "title";
