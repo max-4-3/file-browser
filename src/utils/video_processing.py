@@ -31,6 +31,65 @@ def is_likely_static_image(stream):
 
     return False
 
+async def gather_info_for(fp: str) -> dict:
+    data = {
+        "success": False
+    }
+
+    if not os.path.exists(fp):
+        return data
+
+    ffprobe_cmd = [
+        "ffprobe",
+        "-hide_banner",
+        "-v",
+        "error",  # Only show errors, helps keep stdout clean
+        "-of",
+        "json",
+        "-show_streams",  # Crucial: include stream information
+        "-select_streams",
+        "v",  # Optional: filter to only video streams
+        "-i",
+        fp,
+    ]
+    ffprobe_proccess = await asyncio.create_subprocess_exec(
+        *ffprobe_cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await ffprobe_proccess.communicate()
+    if ffprobe_proccess.returncode == 0:
+        try:
+            output = (stdout or stderr).decode("utf-8")
+            ffprobe_data = json.loads(output)
+
+            duration = 0 
+            stream = None
+            for s in ffprobe_data.get("streams", []):
+                if is_likely_static_image(s):
+                    stream = s
+                duration = getattr(s, "duration", 0)
+
+            if stream:
+                print(
+                    f"[Thumbnail] Likely Thumbnail Stream Found! Index: {stream['index']}"
+                )
+                data["success"] = True
+                data["data"] = {
+                    "thumbnail_stream": stream,
+                    "contains_thumb": True,
+                    "duration": duration
+                }
+                return data
+            else:
+                print("[Thumbnail] No attached thumbnail stream found.")
+        except json.JSONDecodeError as e:
+            print("[Error] ffprobe Unable to parse output:", e)
+            print("Output:\n", stdout or stderr)
+    else:
+        print(
+            f"[Error] ffprobe failed with exit code {ffprobe_proccess.returncode}:"
+        )
+
+    return data
 
 async def extract_thumbnail(
     video_path: str, thumbnail_base_name: Optional[str] = None
@@ -60,51 +119,17 @@ async def extract_thumbnail(
         )
         tmp_path = os.path.join(THUMB_PATH, thumb_filename)
 
-        # Checks for thumbnail stream
-        ffprobe_cmd = [
-            "ffprobe",
-            "-hide_banner",
-            "-v",
-            "error",  # Only show errors, helps keep stdout clean
-            "-of",
-            "json",
-            "-show_streams",  # Crucial: include stream information
-            "-select_streams",
-            "v",  # Optional: filter to only video streams
-            "-i",
-            video_path,
-        ]
-        ffprobe_proccess = await asyncio.create_subprocess_exec(
-            *ffprobe_cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await ffprobe_proccess.communicate()
         contains_thumb = False, -99
+        
+        # Extract info dict for current video file
+        video_info = await gather_info_for(video_path)
 
-        if ffprobe_proccess.returncode == 0:
+        # Check whether the info extraction is succesful
+        if video_info["success"]:
             try:
-                output = (stdout or stderr).decode("utf-8")
-                data = json.loads(output)
-
-                stream = None
-                for s in data.get("streams", []):
-                    if is_likely_static_image(s):
-                        stream = s
-
-                if stream:
-                    contains_thumb = True, int(stream["index"])
-                    print(
-                        f"[Thumbnail] Likely Thumbnail Stream Found! Index: {stream['index']}"
-                    )
-                else:
-                    print("[Thumbnail] No attached thumbnail stream found.")
-
-            except json.JSONDecodeError as e:
-                print("[Error] ffprobe Unable to parse output:", e)
-                print("Output:\n", stdout or stderr)
-        else:
-            print(
-                f"[Error] ffprobe failed with exit code {ffprobe_proccess.returncode}:"
-            )
+                contains_thumb = video_info["data"]["contains_thumb"], int(video_info["data"]["thumbnail_stream"]["index"])
+            except:  # Can raise error in int conversion 
+                pass
 
         if contains_thumb[0]:
             extract_cmd = [
@@ -132,7 +157,7 @@ async def extract_thumbnail(
                 "-ss",
                 "00:00:05",
                 "-vf",
-                "thumbnail",  # raw string for cross-platform compatibility
+                "thumbnail",  
                 "-frames:v",
                 "1",
                 tmp_path,

@@ -11,14 +11,22 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function renderVideos() {
-        const sorted = [...videos].sort((a, b) => {
+
+        const grid = document.getElementById("videoGrid");
+        grid.innerHTML = ""; // Clear previous entries
+
+		if (!videos || videos.length === 0) {
+			grid.innerHTML = 
+                '<div class="no-videos">No videos available</div>';
+			return
+		}
+
+		const sorted = [...videos].sort((a, b) => {
             return sortDescending
                 ? b.modified_time - a.modified_time
                 : a.modified_time - b.modified_time;
         });
 
-        const grid = document.getElementById("videoGrid");
-        grid.innerHTML = ""; // Clear previous entries
 
         sorted.forEach((video) => {
             const card = document.createElement("div");
