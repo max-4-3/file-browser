@@ -79,7 +79,7 @@ async def reload_data():
     # This creates a new "data" dict without files that doesn't exist
     for vid_data in get_video_data().values():
         vid_path = os.path.expanduser(vid_data["video_path"])
-        if not os.path.exists(vid_path) or os.path.splitext(vid_path)[1] not in ALLOWED_FILES or not any(os.path.commonpath([vid_path, _root_path]) == root for _root_path in ROOT_DIRS):
+        if not os.path.exists(vid_path) or os.path.splitext(vid_path)[1] not in ALLOWED_FILES or not any(os.path.commonpath([vid_path, _root_path]) == _root_path for _root_path in ROOT_DIRS):
             if os.path.exists(vid_data["thumb_path"]):
                 os.remove(vid_data["thumb_path"])
             print(f"[red bold]File Removed: {
