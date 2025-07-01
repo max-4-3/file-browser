@@ -57,15 +57,16 @@ async def make_data():
         async with sem:
             return await _process_video(*args, **kwargs)
 
-    sem = asyncio.Semaphore(10)
-    tasks = [asyncio.create_task(proc_wrapper(sem, f"Making thumbnail for: {os.path.basename(file)}", file)) for file in files_to_add]
+    sem = asyncio.Semaphore(2)
+    tasks = [asyncio.create_task(proc_wrapper(sem, f"Making thumbnail for: {
+                                 os.path.basename(file)}", file)) for file in files_to_add]
     data = {}
     for result in await asyncio.gather(*tasks):
         if not result:
             print("Skipping...")
             continue
         data[result["id"]] = result
-    
+
     save_data(data, os.path.join(DATA_FOLDER, "video_data.json"))
     return data
 
@@ -77,15 +78,15 @@ async def reload_data():
 
     # This creates a new "data" dict without files that doesn't exist
     for vid_data in get_video_data().values():
-        vid_path = vid_data["video_path"]
-        if not os.path.exists(vid_path) or os.path.splitext(vid_path)[1] not in ALLOWED_FILES:
+        vid_path = os.path.expanduser(vid_data["video_path"])
+        if not os.path.exists(vid_path) or os.path.splitext(vid_path)[1] not in ALLOWED_FILES or not any(os.path.commonpath([vid_path, _root_path]) == root for _root_path in ROOT_DIRS):
             if os.path.exists(vid_data["thumb_path"]):
                 os.remove(vid_data["thumb_path"])
-            print(f"[red bold]File Removed: {vid_data["title"]}[!Exist][/bold red]")
+            print(f"[red bold]File Removed: {
+                  vid_data["title"]}[!Exist][/bold red]")
             continue
         filenames.append(vid_data["title"])
-        data[vid_data["id"]] = {k:v for k, v in vid_data.items()}
-
+        data[vid_data["id"]] = {k: v for k, v in vid_data.items()}
 
     new_files = []
     for root_path in ROOT_DIRS:
@@ -107,8 +108,9 @@ async def reload_data():
         async with sem:
             return await _process_video(*args, **kwargs)
 
-    sem = asyncio.Semaphore(10)
-    tasks = [asyncio.create_task(proc_wrapper(sem, f"Making thumbnail for: {os.path.basename(file)}", file)) for file in new_files]
+    sem = asyncio.Semaphore(2)
+    tasks = [asyncio.create_task(proc_wrapper(sem, f"Making thumbnail for: {
+                                 os.path.basename(file)}", file)) for file in new_files]
     for vid_data in await asyncio.gather(*tasks):
         if not vid_data:
             print("Skipping...")
