@@ -8,44 +8,130 @@ document.addEventListener("DOMContentLoaded", async () => {
     const refreshButton = document.getElementById("refreshVideos");
     const videoGrid = document.getElementById("videoGrid");
     const sortBtn = document.getElementById("sortBtn");
+	const downloadBtn = document.getElementById("downloadBtn");
+	
 
     // Get video ID from URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const videoId = urlParams.get("id");
+    let urlParams = new URLSearchParams(window.location.search);
+    let videoId = urlParams.get("id");
 
     // Sort
     let sortDescending = true;
     let videos = [];
+
+    // --- Global/module variables for player management and fallback ---
+    let player; // Holds the Plyr instance
+    let plyrTimeoutId; // Stores the ID for the Plyr initialization timeout
+    let playerInitialized = false; // Flag to indicate if *any* player (Plyr or native) is active
 
     if (!videoId) {
         showError("Error: No video ID provided");
         return;
     }
 
-    // Initialize player
-    let player;
+    // --- Function to handle fallback to native HTML5 video player ---
+    function fallbackToNative() {
+        if (playerInitialized) {
+            // If a player (Plyr or native) is already successfully initialized,
+            // don't attempt fallback again to prevent duplicate setups.
+            console.log("Player already initialized, skipping native fallback attempt.");
+            return;
+        }
 
-    async function setPageTitle() {
-        let stat_res = await fetch(`/api/stats?video_id=${videoId}`);
-        let title = await stat_res.json();
-        document.title = title.title;
+        console.warn("Plyr initialization timed out or failed. Falling back to native video player.");
+
+        // Clean up any existing Plyr instance to prevent conflicts
+        if (player) {
+            try {
+                player.destroy();
+                player = null; // Clear the Plyr instance reference
+            } catch (e) {
+                console.error("Error destroying Plyr instance during fallback:", e);
+            }
+        }
+
+        // Configure the native <video> element
+        playerElement.className = "video"; // Ensure it has appropriate styling
+        playerElement.style.width = "100%";
+        playerElement.style.height = "100%";
+        playerElement.src = `/api/video?video_id=${videoId}`;
+        playerElement.setAttribute('preload', 'metadata'); // Load metadata only to reduce initial load
+        playerElement.controls = true; // Ensure native controls are visible for user interaction
+
+        // Display the native player and hide loading state
+        loadingState.style.display = "none";
+        playerElement.style.display = "block";
+        playerElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        playerInitialized = true; // Mark that a player is now active
+        console.log("Native video player successfully loaded.");
+
+        // Optional: Add an error listener for the native video element
+        playerElement.onerror = () => {
+            showError("Error playing video in native player. Please check the video source.");
+        };
     }
 
+    // --- Set Page Title Function ---
+    async function setPageTitle() {
+        if (videoId) {
+            let stat_res = await fetch(`/api/stats?video_id=${videoId}`);
+            let title = await stat_res.json();
+            document.title = title.title;
+			downloadBtn.setAttribute("download", document.title + ".mp4");
+        } else {
+            document.title = "Video Player"; // Default title if no videoId
+        }
+    }
+
+    // --- Main player initialization function with Plyr and native fallback logic ---
     function initializePlayer() {
+        // Reset state for a new initialization attempt
+        playerInitialized = false; // Allow re-initialization
+        clearTimeout(plyrTimeoutId); // Clear any previous pending timeout
+		downloadBtn.setAttribute("href", `/api/video?video_id=${videoId}`)
+
+        // If a Plyr instance exists from a previous call, destroy it for a clean start
+        if (player) {
+            try {
+                player.destroy();
+                player = null;
+            } catch (e) {
+                console.error("Error destroying previous Plyr instance:", e);
+            }
+        }
+
+        // Clear previous video source and controls from the <video> element
+        // to prevent flickering or native controls showing before Plyr takes over
+        playerElement.src = '';
+        playerElement.removeAttribute('controls');
+
+        // Show loading state and hide other states
         loadingState.style.display = "flex";
         errorState.style.display = "none";
         playerElement.style.display = "none";
 
+        // Set a timeout for Plyr initialization.
+        // If Plyr doesn't become "ready" or throws a synchronous error within 3 seconds,
+        // the `fallbackToNative` function will be called.
+        plyrTimeoutId = setTimeout(() => {
+            if (!playerInitialized) { // Only trigger fallback if Plyr hasn't succeeded yet
+                fallbackToNative();
+            }
+        }, 3000); // 3-second timeout
+
         try {
+            // Attempt to initialize Plyr
             player = new Plyr("#player", {
                 autoplay: false,
                 seekTime: 10,
                 debug: false,
                 iconUrl: "https://cdn.plyr.io/3.7.8/plyr.svg",
                 blankVideo: "https://cdn.plyr.io/static/blank.mp4",
+                preload: 'metadata', // Set preload to 'metadata' to load less initially
             });
 
-            // Set video source
+            // Set video source for Plyr
             player.source = {
                 type: "video",
                 sources: [
@@ -53,119 +139,162 @@ document.addEventListener("DOMContentLoaded", async () => {
                         src: `/api/video?video_id=${videoId}`,
                         type: "video/mp4",
                     },
+                    // Consider adding WebM format for better compression and compatibility
+                    // {
+                    //     src: `/api/video?video_id=${videoId}&format=webm`,
+                    //     type: "video/webm",
+                    // },
                 ],
                 poster: `/api/thumbnail?video_id=${videoId}`,
             };
 
+            // Event listener for Plyr becoming ready
             player.on("ready", () => {
-                loadingState.style.display = "none";
-                playerElement.style.display = "block";
+                clearTimeout(plyrTimeoutId); // Clear the pending fallback timeout as Plyr is ready
+                if (!playerInitialized) { // Ensure this is the first successful initialization
+                    loadingState.style.display = "none";
+                    playerElement.style.display = "block";
+                    playerElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    playerInitialized = true;
+                    console.log("Plyr player loaded successfully.");
+                }
             });
+
+            // Event listener for Plyr errors during playback (e.g., source not found, network issues)
+            player.on("error", (event) => {
+                console.error("Plyr error event:", event);
+                clearTimeout(plyrTimeoutId); // Clear any pending fallback timeout
+                fallbackToNative(); // Immediately fallback to native on Plyr runtime error
+            });
+
         } catch (err) {
-            console.error(`Player initialization failed: ${err.message}`);
-            playerElement.className = "video";
-            playerElement.style.width = "100%";
-            playerElement.style.height = "100%";
-            playerElement.src = `/api/video?video_id=${videoId}`;
-            loadingState.style.display = "none";
-            playerElement.style.display = "block";
+            // This `catch` block handles synchronous errors that occur during the `new Plyr(...)` call itself
+            console.error(`Synchronous Plyr initialization failed: ${err.message}`);
+            clearTimeout(plyrTimeoutId); // Clear the pending fallback timeout
+            fallbackToNative(); // Immediately fallback to native if Plyr constructor fails
         }
     }
 
-    // Error handling
+    // --- Error Handling Function ---
     function showError(message) {
         console.error(message);
         loadingState.style.display = "none";
         playerElement.style.display = "none";
         errorState.style.display = "flex";
         errorMessage.textContent = message;
+        // Optionally, destroy any active player instance if an unrecoverable error occurs
+        if (player) {
+            try { player.destroy(); player = null; } catch (e) { console.error(e); }
+        }
+        playerInitialized = false; // Reset flag so a new attempt can be made
     }
 
+    // Event listener for retry button
     retryButton.addEventListener("click", initializePlayer);
+
+    // Initial call to load the player when the page loads
     initializePlayer();
 
-    // Video library functions
+    // --- Video library functions ---
     async function fetchVideos() {
         try {
+            // Show placeholder cards while videos are being fetched
             videoGrid.innerHTML = `
-        <div class="grid-placeholder">
-          <div class="placeholder-card"></div>
-          <div class="placeholder-card"></div>
-          <div class="placeholder-card"></div>
-          <div class="placeholder-card"></div>
-        </div>
-      `;
+                <div class="grid-placeholder">
+                    <div class="placeholder-card"></div>
+                    <div class="placeholder-card"></div>
+                    <div class="placeholder-card"></div>
+                    <div class="placeholder-card"></div>
+                </div>
+            `;
 
             const res = await fetch("/api/videos");
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
             const data = await res.json();
             videos = data.videos;
-			document.getElementById("vidCount").innerText = `${videos.length} Videos`
-			renderVideos(videos);
+            document.getElementById("vidCount").innerText = `${videos.length} Videos`
+            renderVideos(videos); // Render fetched videos
         } catch (error) {
             console.error("Failed to fetch videos:", error);
+            // Display an error message with a retry button if fetching fails
             videoGrid.innerHTML = `
-        <div class="fetch-error">
-          <i class="fas fa-exclamation-circle"></i>
-          <p>Failed to load videos. <button class="text-button" id="retryFetch">Retry</button></p>
-        </div>
-      `;
+                <div class="fetch-error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Failed to load videos. <button class="text-button" id="retryFetch">Retry</button></p>
+                </div>
+            `;
             document
                 .getElementById("retryFetch")
                 .addEventListener("click", fetchVideos);
         }
     }
 
-    function renderVideos(videos) {
-        videoGrid.innerHTML = ""
+    function renderVideos(videosToRender) {
+        videoGrid.innerHTML = ""; // Clear existing grid content
 
-        if (!videos || videos.length === 0) {
+        if (!videosToRender || videosToRender.length === 0) {
             videoGrid.innerHTML =
                 '<div class="no-videos">No videos available</div>';
             return;
         }
 
-        const sorted = [...videos].sort((a, b) => {
+        // Sort videos based on the current sorting order
+        const sorted = [...videosToRender].sort((a, b) => {
             return sortDescending
                 ? b.modified_time - a.modified_time
                 : a.modified_time - b.modified_time;
-        }); videoGrid.innerHTML = "";
+        });
 
+        // Create and append video cards to the grid
         sorted.forEach((video) => {
-            if (video.id != videoId) {
+            if (video.id !== videoId) { // Exclude the currently playing video from the grid
                 const card = document.createElement("div");
                 card.className = "card";
-
-                const link = document.createElement("a");
-                link.href = `watch?id=${video.id}`;
+                card.dataset.videoId = video.id; // Store video ID as a data attribute
 
                 const thumb = document.createElement("img");
-                thumb.src = `/api/thumbnail?video_id=${video.id}`;
+                // Lazy loading for thumbnails: Use a tiny placeholder and `data-src`
+                thumb.src = `/api/thumbnail?video_id=${video.id}`; // Actual image URL
                 thumb.alt = video.title;
-                thumb.setAttribute("loading", "lazy");
+                thumb.setAttribute("loading", "lazy"); // Native browser lazy loading for images
 
                 const title = document.createElement("div");
                 title.className = "title";
                 title.textContent = video.title;
 
-                link.appendChild(thumb);
-                card.appendChild(link);
+                card.appendChild(thumb);
                 card.appendChild(title);
+
+                // Add click listener to each card
+                card.addEventListener("click", () => {
+                    const newVideoId = card.dataset.videoId;
+                    if (newVideoId && newVideoId !== videoId) {
+                        videoId = newVideoId; // Update the global videoId
+                        // Update the URL in the browser's history without reloading the page
+                        const newUrl = new URL(window.location.href);
+                        newUrl.searchParams.set('id', videoId);
+                        window.history.pushState({ path: newUrl.href }, '', newUrl.href);
+
+                        initializePlayer(); // Re-initialize the player with the new video ID
+                        setPageTitle(); // Update the page title
+                        renderVideos(videos); // Re-render the grid to update excluded video
+                    }
+                });
+
                 videoGrid.appendChild(card);
             }
         });
     }
 
+    // Event listeners for refresh and sort buttons
     refreshButton.addEventListener("click", fetchVideos);
-    fetchVideos();
+    fetchVideos(); // Initial fetch of videos
 
     sortBtn.addEventListener("click", async () => {
         sortBtn.innerText = sortDescending ? "👇🏻🧑🏻" : "👇🏻👶🏻";
         sortDescending = !sortDescending;
         renderVideos(videos);
     });
-
-    setPageTitle();
-
+    setPageTitle(); // Set the initial page title
 });
