@@ -1,11 +1,15 @@
-from typing import Dict, Any
+from src.models import SQLModel, Video, VideoServer
+from src import DATA_FOLDER
+from sqlmodel import create_engine, Session
+import os
 
-# Initialize your data dictionary
-video_data: Dict[str, Any] = {}
+os.makedirs(os.path.expanduser(DATA_FOLDER), exist_ok=True)
+database_file = "video_store.db"
+database_abs_path = os.path.abspath(os.path.join(os.path.expanduser(DATA_FOLDER), database_file))
+engine_url = f"sqlite:///{database_abs_path}"
+engine = create_engine(engine_url)
+SQLModel.metadata.create_all(engine)
 
-def get_video_data() -> Dict[str, Any]:
-    return video_data
-
-def update_video_data(new_data: Dict[str, Any]) -> None:
-    global video_data
-    video_data = new_data
+def get_session() -> Session:
+    with Session(engine) as session:
+        yield session

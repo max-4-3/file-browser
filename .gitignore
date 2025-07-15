@@ -11,5 +11,6 @@ wheels/
 *.png
 *.jpg
 *.json
+*.db
 .thumbs/*
-
+temp*

@@ -1,66 +1,109 @@
+let favourites = JSON.parse(localStorage.getItem("favourites") || "[]");
+let sortDescending = true;
+let videos = [];
+
+function saveFavourites() {
+    localStorage.setItem("favourites", JSON.stringify(favourites))
+}
+
+function toggleFavourite(element, videoId) {
+    const index = favourites.indexOf(videoId);
+    if (index > -1) {
+        favourites.splice(index, 1);
+        element.classList.remove('active');
+        element.innerText = '🤍';
+    } else {
+        favourites.push(videoId);
+        element.classList.add('active');
+        element.innerText = '🩷';
+    }
+    saveFavourites()
+}
+
+function renderVideo(video) {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.dataset.videoId = video.id;
+
+    const thumbnailContainer = document.createElement("div");
+    thumbnailContainer.className = "thumbnail-box";
+    thumbnailContainer.innerHTML = `
+    <div class="overlays">
+    <div id="addFavBtn" class="overlay-item ${favourites.includes(video.id) ? 'active' : ''}">
+    ${favourites.includes(video.id) ? '🩷' : '🤍'}
+    </div>
+    <a id="downloadVidBtn" class="overlay-item" href="/api/video/?video_id=${video.id}" download="${video.title}.mp4">🔽</a>
+    </div>
+    <img src="/api/thumbnail?video_id=${video.id}" loading="lazy" onclick="window.open(${`watch?id=${video.id}`})" alt="${video.title}">
+    <div class="duration-badge">${video.duration}</div>
+    `;
+    const favBtn = thumbnailContainer.querySelector("#addFavBtn");
+    favBtn.addEventListener("click", () => toggleFavourite(favBtn, video.id));
+    thumbnailContainer.querySelector("img").addEventListener("click", () => window.open(`watch?id=${video.id}`));
+
+    const titleContainer = document.createElement("div");
+    titleContainer.className = "title";
+    titleContainer.innerText = video.title;
+
+    card.appendChild(thumbnailContainer);
+    card.appendChild(titleContainer);
+
+    return card;
+}
+
+async function fetchVideos(apiEndpoint = "/api/videos") {
+    const res = await fetch(apiEndpoint);
+    if (!res.ok) {
+        throw new Error("Request Wasn't Ok!")
+    }
+    const data = await res.json()
+    return data.videos
+}
+
+function renderVideos(videos, gridId = "videoGrid", sortVideos = true, sortCallback = (a, b) => {
+    return sortDescending
+        ? b.modified_time - a.modified_time
+        : a.modified_time - b.modified_time;
+}) {
+
+    console.log("Video Rendering Triggered!")
+    console.log(videos)
+    const videoGrid = document.getElementById(gridId);
+    videoGrid.innerHTML = "";
+
+    if (!videos || videos.length === 0 || !Array.isArray(videos)) {
+        console.warn("Either no videos found or length is zero or Array.isArray for videos is False.")
+        videoGrid.innerHTML = "<h1> No Video Available! </h1>";
+        return;
+    }
+
+    let sorted = videos;
+    if (sortVideos && sortCallback) {
+        sorted = videos.sort(sortCallback)
+    }
+
+    sorted.forEach((video) => {
+        const cardElem = renderVideo(video);
+        videoGrid.appendChild(cardElem);
+    })
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
-    let sortDescending = true;
-    let videos = [];
 
-    async function fetchVideos() {
-        const res = await fetch("/api/videos");
-        const data = await res.json();
-        videos = data.videos;
-		document.getElementById("vidCount").innerText = `${videos.length} Videos`
-        renderVideos();
-    }
+    videos = await fetchVideos();
+    renderVideos(videos);
 
-    function renderVideos() {
-
-        const grid = document.getElementById("videoGrid");
-        grid.innerHTML = ""; // Clear previous entries
-
-		if (!videos || videos.length === 0) {
-			grid.innerHTML = 
-                '<div class="no-videos">No videos available</div>';
-			return
-		}
-
-		const sorted = [...videos].sort((a, b) => {
-            return sortDescending
-                ? b.modified_time - a.modified_time
-                : a.modified_time - b.modified_time;
-        });
-
-
-        sorted.forEach((video) => {
-            const card = document.createElement("div");
-            card.className = "card";
-
-            const link = document.createElement("a");
-            link.href = `watch?id=${video.id}`;
-
-            const thumb = document.createElement("img");
-            thumb.src = `/api/thumbnail?video_id=${video.id}`;
-            thumb.alt = video.title;
-            thumb.setAttribute("loading", "lazy");
-
-            const title = document.createElement("div");
-            title.className = "title";
-            title.textContent = video.title;
-
-            link.appendChild(thumb);
-            card.appendChild(link);
-            card.appendChild(title);
-            grid.appendChild(card);
-        });
-    }
+    document.getElementById("vidCount").innerText = `${videos.length} Videos`;
 
     document.getElementById("sortBtn").addEventListener("click", () => {
         sortDescending = !sortDescending;
         document.getElementById("sortBtn").textContent = sortDescending
             ? "👇🏻👶🏻"
             : "👇🏻🧑🏻";
-        renderVideos();
+        renderVideos(videos);
     });
 
     document.getElementById("reloadBtn").addEventListener("click", async () => {
-        const btn = document.getElementById("reloadBtn");
         const textSpan = document.getElementById("reloadText");
 
         const ogTxt = textSpan.textContent;
@@ -85,6 +128,4 @@ document.addEventListener("DOMContentLoaded", async () => {
             textSpan.textContent = ogTxt;
         }
     });
-
-    fetchVideos();
 })

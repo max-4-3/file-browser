@@ -1,10 +1,22 @@
-from pydantic import BaseModel, Field
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List
 from uuid import uuid4
 
-class VideoPreview(BaseModel):
-    id: str = Field(default_factory=lambda: uuid4().hex, description="The ID of the video item")
-    title: str = Field(..., description="The title of the video")
-    modified_time: float = Field(..., description="The unix timestamp of modified metadata of the file")
 
-class Directory(BaseModel):
-    videos: list[VideoPreview] = Field(..., description="The List Containing all the videos")
+class Video(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    title: str
+    duration: str
+    filesize: int
+    modified_time: float
+
+    servers: List["VideoServer"] = Relationship(back_populates="video")
+
+
+class VideoServer(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    video_id: str = Field(foreign_key="video.id")
+    video: Optional[Video] = Relationship(back_populates="servers")
+    video_path: str
+    thumbnail_path: str
+

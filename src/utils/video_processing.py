@@ -1,201 +1,113 @@
-import asyncio, json
-from typing import Optional
-import os
-from src import THUMB_PATH
-from rich import print
+import asyncio, json, os
 from uuid import uuid4
+from src import THUMB_PATH
+from src.models import Video, VideoServer
 
+
+def convert_time(time_float: float) -> str:
+    total_seconds = max(int(time_float), 0)
+    minutes = total_seconds // 60
+    secs = total_seconds % 60
+    return f"{minutes:02}:{secs:02}"
 
 def is_likely_static_image(stream):
-    if stream.get("codec_type") != "video":
-        return False
-
     if stream.get("disposition", {}).get("attached_pic") == 1:
         return True
-
-    codec = stream.get("codec_name", "")
-    if codec in {"mjpeg", "png", "bmp"}:
+    if stream.get("codec_name") in {"mjpeg", "png", "bmp"}:
         return True
-
-    duration = float(stream.get("duration", 0))
-    if duration > 0 and duration < 0.5:
+    if 0 < float(stream.get("duration", 0)) < 0.5:
         return True
-
-    nb_frames = stream.get("nb_frames")
-    if nb_frames and int(nb_frames) <= 1:
+    if int(stream.get("nb_frames", "2")) <= 1:
         return True
-
-    bit_rate = int(stream.get("bit_rate", 0))
-    if bit_rate > 0 and bit_rate < 10000:
+    if int(stream.get("bit_rate", "20000")) < 10000:
         return True
-
+    if stream.get("codec_type") != "video":
+        return False
     return False
 
-async def gather_info_for(fp: str) -> dict:
-    data = {
-        "success": False
-    }
+async def generate_thumbnail(vid_path: str, stream_idx: int, vid_duration: str | float, root_path: str = None, file_name_prefix: str = "thumbnail_"):
 
-    if not os.path.exists(fp):
-        return data
+    root_path = root_path or THUMB_PATH
 
-    ffprobe_cmd = [
-        "ffprobe",
-        "-hide_banner",
-        "-v",
-        "error",  # Only show errors, helps keep stdout clean
-        "-of",
-        "json",
-        "-show_streams",  # Crucial: include stream information
-        "-select_streams",
-        "v",  # Optional: filter to only video streams
-        "-i",
-        fp,
-    ]
-    ffprobe_proccess = await asyncio.create_subprocess_exec(
-        *ffprobe_cmd, stderr=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE
-    )
-    stdout, stderr = await ffprobe_proccess.communicate()
-    if ffprobe_proccess.returncode == 0:
-        try:
-            output = (stdout or stderr).decode("utf-8")
-            ffprobe_data = json.loads(output)
+    os.makedirs(root_path, exist_ok=True)
+    output_path = os.path.join(root_path or os.getcwd(), file_name_prefix + uuid4().hex + ".png")
 
-            duration = 0 
-            stream = None
-            for s in ffprobe_data.get("streams", []):
-                if is_likely_static_image(s):
-                    stream = s
-                duration = getattr(s, "duration", 0)
-
-            if stream:
-                print(
-                    f"[Thumbnail] Likely Thumbnail Stream Found! Index: {stream['index']}"
-                )
-                data["success"] = True
-                data["data"] = {
-                    "thumbnail_stream": stream,
-                    "contains_thumb": True,
-                    "duration": duration
-                }
-                return data
-            else:
-                print("[Thumbnail] No attached thumbnail stream found.")
-        except json.JSONDecodeError as e:
-            print("[Error] ffprobe Unable to parse output:", e)
-            print("Output:\n", stdout or stderr)
+    if stream_idx < -1:
+        # Fast seek before input
+        midpoint = str(int(float(vid_duration) / 2))
+        cmd = [
+            "ffmpeg",
+            "-ss", midpoint,
+            "-t", "1",  # Optional: only decode 1s
+            "-i", vid_path,
+            "-frames:v", "1",
+            "-c:v", "png",
+            "-y",
+            output_path
+        ]
     else:
-        print(
-            f"[Error] ffprobe failed with exit code {ffprobe_proccess.returncode}:"
+        # Stream index selection — no midpoint
+        cmd = [
+            "ffmpeg",
+            "-i", vid_path,
+            "-map", f"0:{stream_idx}",
+            "-c:v", "png",
+            "-frames:v", "1",
+            "-y",
+            output_path
+        ]
+    process = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL
+    )
+    await process.wait()
+    return output_path if os.path.exists(output_path) else None
+
+async def generate_video_info(sem: asyncio.Semaphore, vid_path: str) -> tuple[Video, VideoServer] | None:
+    async with sem:
+        format_command = [
+            "ffprobe", "-print_format", "json", "-show_format", "-show_streams",
+            "-select_streams", "v", "-v", "quiet", vid_path
+        ]
+        proc = await asyncio.create_subprocess_exec(
+            *format_command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await proc.communicate()
+
+        if proc.returncode != 0:
+            raise Exception(f"FFprobe failed on {vid_path}")
+
+        video_probe = json.loads((stdout or stderr or b'{}').decode(errors="ignore"))
+        format_info = video_probe.get("format", {})
+        duration = float(format_info.get("duration", 0))
+        size = int(format_info.get("size", 0))
+        title = os.path.splitext(os.path.basename(vid_path))[0]
+
+        video_obj = Video(
+            title=title,
+            duration=convert_time(duration),
+            filesize=size,
+            modified_time=os.path.getmtime(vid_path)
         )
 
-    return data
+        # find likely static image stream
+        thumb_stream_index = -2
+        for stream in video_probe.get("streams", []):
+            if is_likely_static_image(stream):
+                thumb_stream_index = int(stream["index"])
+                break
 
-async def extract_thumbnail(
-    video_path: str, thumbnail_base_name: Optional[str] = None
-) -> Optional[str] | bool:
-    """
-    Extracts a thumbnail from a video file using FFmpeg.
+        thumb_path = await generate_thumbnail(vid_path, thumb_stream_index, duration)
+        if not thumb_path:
+            raise OSError("Thumbnail generation failed")
 
-    Args:
-        video_path: The path to the video file.
-        thumbnail_base_name: An optional base name for the thumbnail file.
-            If None, a UUID will be used.
-
-    Returns:
-        The path to the extracted thumbnail file on success, False on failure.
-    """
-    if not os.path.isfile(video_path):
-        print(
-            f"[Error] Video file not found: [cyan]{video_path}[/cyan]"
-        )  # Added: Print the video path
-        return False
-
-    try:
-        # Create a thumbnail output path
-        os.makedirs(THUMB_PATH, exist_ok=True)
-        thumb_filename = (
-            f"{thumbnail_base_name if thumbnail_base_name else uuid4().hex}_thumb.png"
+        video_server = VideoServer(
+            video_id=video_obj.id,
+            video_path=vid_path,
+            thumbnail_path=thumb_path
         )
-        tmp_path = os.path.join(THUMB_PATH, thumb_filename)
 
-        contains_thumb = False, -99
-        
-        # Extract info dict for current video file
-        video_info = await gather_info_for(video_path)
-
-        # Check whether the info extraction is succesful
-        if video_info["success"]:
-            try:
-                contains_thumb = video_info["data"]["contains_thumb"], int(video_info["data"]["thumbnail_stream"]["index"])
-            except:  # Can raise error in int conversion 
-                pass
-
-        if contains_thumb[0]:
-            extract_cmd = [
-                "ffmpeg",
-                "-y",
-                "-hide_banner",
-                "-v",
-                "error",
-                "-i",
-                video_path,
-                "-map",
-                f"0:{contains_thumb[1]}",
-                "-c:v",
-                "png",
-                "-frames:v",
-                "1",
-                tmp_path,
-            ]
-        else:
-            extract_cmd = [
-                "ffmpeg",
-                "-y",
-                "-i",
-                video_path,
-                "-ss",
-                "00:00:05",
-                "-vf",
-                "thumbnail",  
-                "-frames:v",
-                "1",
-                tmp_path,
-            ]
-
-        extract_process = await asyncio.create_subprocess_exec(  # Use asyncio
-            *extract_cmd,
-            stdin=asyncio.subprocess.PIPE,  # Use asyncio
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.PIPE,  # Capture stderr
-        )
-        await extract_process.wait()  # Wait for completion
-
-        if extract_process.returncode != 0:
-            print(
-                f"[Error] ffmpeg failed with exit code {extract_process.returncode}:"
-                f" [cyan]{' '.join(extract_cmd)}[/cyan]"
-            )
-            extract_stderr = (
-                await extract_process.stderr.read() if extract_process.stderr else b""
-            )  # Read stderr
-            if extract_stderr:
-                print(
-                    f"[Error] ffmpeg stderr: {extract_stderr.decode('utf-8').strip()}"
-                )
-            return False
-
-        if os.path.exists(tmp_path):
-            print(
-                f"[Success] Created thumbnail: [cyan]{os.path.basename(video_path)}[/cyan] [red]@[/red] [green]{THUMB_PATH}[/green]"
-            )
-            return tmp_path
-        else:
-            print(
-                f"[Error] Thumbnail file was not created: [cyan]{tmp_path}[/cyan]"
-            )  # Added
-            return False
-
-    except Exception as e:
-        print(f"[Error] An unexpected error occurred: {e}")
-        return False
+        return video_obj, video_server
