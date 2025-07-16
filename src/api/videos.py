@@ -17,11 +17,14 @@ async def get_video(video_id: str, session: Session = Depends(get_session)):
     if not os.path.exists(video.video_path):
         raise HTTPException(404, detail="File doesn't exist on server!")
 
-    return FileResponse(
+    response = FileResponse(
         video.video_path,
         filename=video.video.title,
         media_type="video/mp4"
     )
+    response.headers["Access-Control-Allow-Origin"] = "*"
+
+    return response
 
 
 @router.get('/videos', response_model=dict[Any, list[Video] | Any])

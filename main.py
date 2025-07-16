@@ -3,11 +3,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from src.api import videos, thumbnails
 import uvicorn
-import asyncio
-import os
 from src.data_store import get_session, Session
-from src.utils.helpers import reload_data, make_data
-from src import DATA_FOLDER
+from src.utils.helpers import reload_data
 
 app = FastAPI()
 
@@ -40,4 +37,3 @@ app.include_router(thumbnails.router, prefix="/api")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
-

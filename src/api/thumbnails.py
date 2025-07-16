@@ -14,25 +14,11 @@ async def get_thumbnail(video_id: str, session: Session = Depends(get_session)):
     if not os.path.exists(video.video_path):
         raise HTTPException(404, detail="File doesn't exist on server!")
 
-    return FileResponse(
+    response = FileResponse(
         video.thumbnail_path,
         filename=video.video.title,
-        media_type="video/mp4"
+        media_type="image/png"
     )
+    response.headers["Access-Control-Allow-Origin"] = "*"
 
-    # data = get_video_data()
-
-    # video_data = data.get(video_id)
-    # if not video_data:
-    #     raise HTTPException(400, detail="Unable to find video's info related to id: {}".format(video_id))
-    
-    # fp = video_data.get('thumb_path')
-    # if not fp:
-    #     raise HTTPException(404, detail="File doesn't exist on server!")
-    
-    # return FileResponse(
-    #     fp,
-    #     filename=video_data.get('title'),
-    #     media_type='image/png'
-    # )
-
+    return response
