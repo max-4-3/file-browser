@@ -91,7 +91,6 @@ async def generate_video_info(sem: asyncio.Semaphore, vid_path: str) -> tuple[Vi
             duration=convert_time(duration),
             filesize=size,
             modified_time=os.path.getmtime(vid_path)
-            tag=format_info.get("tags", {})
         )
 
         # find likely static image stream
