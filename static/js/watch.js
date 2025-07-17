@@ -146,8 +146,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 autoplay: false,
                 seekTime: 10,
                 debug: false,
-                iconUrl: "https://cdn.plyr.io/3.7.8/plyr.svg",
-                blankVideo: "https://cdn.plyr.io/static/blank.mp4",
+                iconUrl: "./static/local/plyr.svg",
+                blankVideo: "./static/local/blank.mp4",
                 preload: 'metadata', // Set preload to 'metadata' to load less initially
             });
 

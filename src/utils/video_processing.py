@@ -68,7 +68,7 @@ async def generate_video_info(sem: asyncio.Semaphore, vid_path: str) -> tuple[Vi
     async with sem:
         format_command = [
             "ffprobe", "-print_format", "json", "-show_format", "-show_streams",
-            "-select_streams", "v", "-v", "quiet", vid_path
+            "-select_streams", "v", "-show_entries", "stream_tags:format_tags", "-v", "quiet", vid_path
         ]
         proc = await asyncio.create_subprocess_exec(
             *format_command,
@@ -91,6 +91,7 @@ async def generate_video_info(sem: asyncio.Semaphore, vid_path: str) -> tuple[Vi
             duration=convert_time(duration),
             filesize=size,
             modified_time=os.path.getmtime(vid_path)
+            tag=format_info.get("tags", {})
         )
 
         # find likely static image stream

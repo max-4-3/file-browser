@@ -5,77 +5,78 @@
         <meta charset="UTF-8"/>
         <title>Video Player</title>
 
-        <!-- Other Files -->
-        <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css"/>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-        <script src="https://cdn.plyr.io/3.7.8/plyr.js"></script>
-
-        <!-- Static Files -->
+        <!-- Icon File -->
         <link rel="icon" type="image/x-icon" href="./static/icon.png"/>
+
+        <!-- Stylesheet (CSS) -->
+        <link rel="stylesheet" href="./static/css/all.min.css">
+        <link rel="stylesheet" href="./static/css/plyr.css">
         <link rel="stylesheet" href="./static/css/watch.css">
-            <script type="module" src="./static/js/watch.js" defer="defer"></script>
-        </head>
 
-        <body>
-            <div class="top-bar">
-                <h1 class="home-button" onclick="window.location.href='/'">
-                    🏠 Home
-                </h1>
-                <div class="buttons">
-                    <div id="vidCount" class="cool-button" onclick="">
-                        0 Videos
+    </head>
+
+    <body>
+        <div class="top-bar">
+            <h1 class="home-button" onclick="window.location.href='/'">
+                🏠 Home
+            </h1>
+            <div class="buttons">
+                <div id="vidCount" class="cool-button" onclick="">
+                    0 Videos
+                </div>
+            </div>
+        </div>
+        <div class="container">
+            <div class="video-container">
+                <div id="loadingState" class="video-loading" style="display: none">
+                    <div class="loading-spinner"></div>
+                    <p>Loading video...</p>
+                </div>
+
+                <div id="errorState" class="video-error" style="display: none">
+                    <div class="video-error-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <h3>Failed to load video</h3>
+                    <p id="errorMessage">An unknown error occurred</p>
+                    <button id="retryButton" class="retry-button">Retry</button>
+                </div>
+
+                <video
+                    id="player" playsinline="playsinline" controls="controls" style="display: none"><!-- Source will be added by JavaScript -->
+                </video>
+            </div>
+
+            <div class="video-library">
+                <div class="library-header">
+                    <h2 class="library-title">More Videos</h2>
+                    <div class="library-actions">
+                        <button class="cool-button" id="refreshVideos" title="Refresh videos">
+                            🔄
+                        </button>
+                        <button class="cool-button" id="sortBtn" title="Sort button">
+                            👇🏻👶🏻
+                        </button>
+                        <a id="downloadBtn" class="cool-button" title="Download Button">⬇️</a>
+                    </div>
+                </div>
+
+                <div
+                    class="video-grid" id="videoGrid">
+                    <!-- Videos will be inserted here by JavaScript -->
+                    <div class="grid-placeholder">
+                        <div class="placeholder-card"></div>
+                        <div class="placeholder-card"></div>
+                        <div class="placeholder-card"></div>
+                        <div class="placeholder-card"></div>
                     </div>
                 </div>
             </div>
-            <div class="container">
-                <div class="video-container">
-                    <div id="loadingState" class="video-loading" style="display: none">
-                        <div class="loading-spinner"></div>
-                        <p>Loading video...</p>
-                    </div>
+        </div>
 
-                    <div id="errorState" class="video-error" style="display: none">
-                        <div class="video-error-icon">
-                            <i class="fas fa-exclamation-triangle"></i>
-                        </div>
-                        <h3>Failed to load video</h3>
-                        <p id="errorMessage">An unknown error occurred</p>
-                        <button id="retryButton" class="retry-button">Retry</button>
-                    </div>
+        <!-- Scipts -->
+        <script src="./static/js/plyr.js" defer></script>
+        <script src="./static/js/watch.js" defer></script>
+    </body>
 
-                    <video
-                        id="player" playsinline="playsinline" controls="controls" style="display: none"><!-- Source will be added by JavaScript -->
-                    </video>
-                </div>
-
-                <div class="video-library">
-                    <div class="library-header">
-                        <h2 class="library-title">More Videos</h2>
-                        <div class="library-actions">
-                            <button class="cool-button" id="refreshVideos" title="Refresh videos">
-                                🔄
-                            </button>
-                            <button class="cool-button" id="sortBtn" title="Sort button">
-                                👇🏻👶🏻
-                            </button>
-                            <a id="downloadBtn" class="cool-button" title="Download Button">⬇️</a>
-                        </div>
-                    </div>
-
-                    <div
-                        class="video-grid" id="videoGrid">
-                        <!-- Videos will be inserted here by JavaScript -->
-                        <div class="grid-placeholder">
-                            <div class="placeholder-card"></div>
-                            <div class="placeholder-card"></div>
-                            <div class="placeholder-card"></div>
-                            <div class="placeholder-card"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-        </body>
-
-    </html>
-</html>
+</html></html>
