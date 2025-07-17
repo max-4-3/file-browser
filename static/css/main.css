@@ -11,6 +11,7 @@
     --danger: #ef233c;
     --danger-hover: #d90429;
     --success: #4cc9f0;
+    --favourite: #FC77A8;
 
     /* Spacing */
     --space-xs: 0.25rem;
@@ -104,9 +105,45 @@ a {
     box-shadow: var(--shadow-md);
 }
 
+.card.favourite {
+    background: var(--favourite);
+    box-shadow: 0 0 6px var(--favourite);
+}
+
+.card.playing {
+    position: relative;
+    /* Ensure the ::after pseudo-element is positioned relative to the card */
+    overflow: hidden;
+    /* Hide any overflow from the ::after if it extends beyond the card's rounded corners */
+}
+
+.card.playing::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(var(--primary), 0.2);
+    border: var(--space-xs) solid var(--primary);
+    border-radius: inherit;
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-normal);
+    pointer-events: none;
+}
+
+.card.playing:hover::after {
+    background-color: rgba(var(--primary), 0.3);
+    box-shadow: var(--shadow-lg);
+}
+
 .card:hover {
     transform: translateY(-5px) scale(1.02);
     box-shadow: var(--shadow-lg);
+}
+
+.card.favourite:hover {
+    box-shadow: 0 0 40px var(--favourite);
 }
 
 .card img {
