@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from src.api import videos, thumbnails
 import uvicorn
 from src.data_store import get_session, Session
@@ -11,8 +12,18 @@ app = FastAPI()
 # Mount static files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Disable CORSMiddleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
 
 # Endpoint to reload
+
+
 @app.post("/reload")
 async def update_data_store(hard: bool = False, session: Session = Depends(get_session)):
     if await reload_data(session, hard):

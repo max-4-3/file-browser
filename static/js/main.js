@@ -50,7 +50,7 @@ export const MainModule = (() => {
         </div>
         <a id="downloadVidBtn" class="overlay-item" href="/api/video/?video_id=${video.id}" download="${video.title}.mp4">🔽</a>
         </div>
-        <img src="/api/thumbnail?video_id=${video.id}" loading="lazy" alt="${video.title}">
+        <img id="vidThumbnail" src="/api/thumbnail?video_id=${video.id}" loading="lazy" alt="${video.title}">
         <div class="duration-badge">${video.duration}</div>
         `;
         const favBtn = thumbnailContainer.querySelector("#addFavBtn");
@@ -60,13 +60,28 @@ export const MainModule = (() => {
             card.classList.toggle("favourite")
         });
         thumbnailContainer.querySelector("img").addEventListener("click", () => thumbnailCallback(video));
+		
+		const videoInfoContaier = document.createElement("div");
+		videoInfoContaier.className = "video-info";
 
-        const titleContainer = document.createElement("div");
+        const titleContainer = document.createElement("p");
         titleContainer.className = "title";
         titleContainer.innerText = video.title;
 
+		const sizeChip = document.createElement("div");
+		sizeChip.className = "video-size chip";
+		sizeChip.innerHTML = `<p class="content"> ${(parseInt(video.filesize) / (1024 ** 2)).toFixed(2)}MB </p>`
+
+		const chipContainer = document.createElement("div");
+		chipContainer.className = "chips-container";
+
+		chipContainer.appendChild(sizeChip)
+
+		videoInfoContaier.appendChild(titleContainer);
+		videoInfoContaier.appendChild(chipContainer);
+		
         card.appendChild(thumbnailContainer);
-        card.appendChild(titleContainer);
+        card.appendChild(videoInfoContaier);
 
         return card;
     }

@@ -94,131 +94,6 @@ a {
     text-decoration: none;
 }
 
-/* Default Card Design */
-.card {
-    position: relative;
-    background: var(--dark);
-    padding: var(--space-sm);
-    border-radius: var(--radius-lg);
-    transition: all var(--transition-fast);
-    cursor: pointer;
-    box-shadow: var(--shadow-md);
-}
-
-.card.favourite {
-    background: var(--favourite);
-    box-shadow: 0 0 6px var(--favourite);
-}
-
-.card.playing {
-    position: relative;
-    /* Ensure the ::after pseudo-element is positioned relative to the card */
-    overflow: hidden;
-    /* Hide any overflow from the ::after if it extends beyond the card's rounded corners */
-}
-
-.card.playing::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(var(--primary), 0.2);
-    border: var(--space-xs) solid var(--primary);
-    border-radius: inherit;
-    box-shadow: var(--shadow-md);
-    transition: all var(--transition-normal);
-    pointer-events: none;
-}
-
-.card.playing:hover::after {
-    background-color: rgba(var(--primary), 0.3);
-    box-shadow: var(--shadow-lg);
-}
-
-.card:hover {
-    transform: translateY(-5px) scale(1.02);
-    box-shadow: var(--shadow-lg);
-}
-
-.card.favourite:hover {
-    box-shadow: 0 0 40px var(--favourite);
-}
-
-.card img {
-    width: 100%;
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    aspect-ratio: 16 / 9;
-    object-fit: contain;
-}
-
-.thumbnail-box {
-    position: relative;
-    overflow: hidden;
-}
-
-.overlays {
-    position: absolute;
-    padding: var(--space-md);
-    display: flex;
-    column-gap: var(--space-sm);
-    right: -100%;
-    transition: var(--transition-normal);
-}
-
-.thumbnail-box:hover .overlays {
-    right: 0;
-}
-
-.overlay-item {
-    width: calc(var(--space-lg) + var(--space-md));
-    height: calc(var(--space-lg) + var(--space-md));
-    font-size: var(--space-md);
-    padding: var(--space-md);
-    text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border-radius: 100%;
-    background-color: #06060666;
-    cursor: pointer;
-    transition: .3s;
-}
-
-.overlay-item:hover {
-    box-shadow: 0 0 14px rgba(0, 0, 0, 0.185);
-    background-color: #00000082;
-}
-
-.overlay-item:active {
-    transform: scale(1.2);
-}
-
-.title {
-    margin-top: 10px;
-    font-size: 16px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    height: 3em;
-}
-
-.duration-badge {
-    position: absolute;
-    margin: var(--space-sm);
-    background-color: var(--dark);
-    color: var(--light);
-    bottom: 0;
-    right: 0;
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-md);
-}
-
 /* Default Cards Grid Style */
 .video-grid {
     display: grid;
@@ -244,6 +119,146 @@ a {
     background-color: var(--light);
     color: var(--dark-gray);
     filter: drop-shadow(var(--shadow-md));
+}
+
+/* New Card Design */
+.card * {
+    transition: .3s;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    margin: var(--space-sm);
+    background-color: var(--dark-gray);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    transition: .3s;
+    cursor: pointer;
+    height: fit-content;
+    border-radius: var(--space-md);
+}
+
+.card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: scale(1.01);
+}
+
+.card.favourite:hover,
+.card.favourite {
+    box-shadow: 0 0 20px var(--favourite);
+    border: 4px solid var(--favourite);
+}
+
+.card:hover .overlays {
+    opacity: 1;
+}
+
+.thumbnail-box {
+    position: relative;
+}
+
+#vidThumbnail {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    object-fit: cover;
+    background: linear-gradient(to top, var(--dark), var(--darker));
+}
+
+#vidThumbnail::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, black, transparent);
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+.overlays {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: flex;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+    opacity: 0;
+}
+
+.overlay-item {
+    padding: var(--space-sm);
+    background-color: var(--dark-gray);
+    text-align: center;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    margin-right: var(--radius-sm);
+}
+
+.overlay-item.active,
+.overlay-item:hover {
+    transform: scale(1.1);
+    background: var(--light-gray);
+    color: var(--dark-gray);
+    box-shadow: var(--shadow-lg);
+    border-radius: var(--radius-lg);
+}
+
+.duration-badge {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--dark-gray);
+    text-align: center;
+    font-size: var(--text-base);
+    border-top-left-radius: var(--radius-md);
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    cursor: none;
+}
+
+.video-info {
+    z-index: 1;
+    background: linear-gradient(to top, var(--dark), var(--darker));
+}
+
+.video-info .title {
+    margin-top: var(--space-sm);
+    text-overflow: ellipsis;
+    overflow: hidden;
+    font-size: var(--text-md);
+    font-weight: 500;
+    line-height: var(--space-xl);
+    margin-left: var(--space-sm);
+    white-space: nowrap;
+}
+
+.chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: var(--space-md);
+    margin-left: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.chip {
+    display: inline-flex;
+    gap: var(--space-xs);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    background-color: var(--dark);
+    box-shadow: var(--shadow-sm);
+}
+
+.chip:hover {
+    background-color: var(--light);
+    color: var(--darker);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Default Top Bar and Container ( main ) Styles */

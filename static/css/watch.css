@@ -2,6 +2,7 @@
 
 .video-container {
     position: relative;
+    width: 100%;
 }
 
 .video-loading {
@@ -76,6 +77,13 @@
     background: var(--primary) !important;
 }
 
+.plyr__video-wrapper {
+    height: unset !important;
+    aspect-ratio: 16 / 9 !important;
+    max-height: 75vh !important;
+    margin: 0 auto !important;
+}
+
 .plyr__menu__container .plyr__control[role="menuitemradio"]:hover {
     background: rgba(67, 97, 238, 0.1) !important;
 }
@@ -140,6 +148,38 @@
     text-align: center;
     padding: var(--space-xl);
     color: var(--gray);
+}
+
+/* Current Video Info Styles */
+.video-info.current {
+    background: unset;
+}
+
+.video-info.current * {
+    transition: .2s ease-in-out;
+}
+
+.current.title {
+    font-size: var(--text-lg);
+    display: block;
+    white-space: normal;
+    overflow: hidden;
+    text-align: center;
+    text-anchor: middle;
+    font-weight: bold;
+    filter: drop-shadow(var(--shadow-md));
+	user-select: none;
+}
+
+.current.chips-container {
+    justify-content: center;
+    align-items: center;
+}
+
+.chip.current {
+    text-align: center;
+    text-transform: capitalize;
+    font-size: var(--text-sm);
 }
 
 @keyframes spin {

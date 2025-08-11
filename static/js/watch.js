@@ -18,7 +18,7 @@ let videos = [];
 let player; // Holds the Plyr instance
 let plyrTimeoutId; // Stores the ID for the Plyr initialization timeout
 let playerInitialized = false; // Flag to indicate if *any* player (Plyr or native) is active
-let vidData = null;
+let currentVideoData = null;
 
 // --- Utils Module (Global Scope) ---
 const UtilsModule = (() => {
@@ -84,6 +84,71 @@ const PlayerModule = (() => {
         };
     }
 
+    function setVideoInfo() {
+        const videoInfoContainer = document.querySelector("div.current.video-info");
+        videoInfoContainer.innerHTML = "";
+
+        if (currentVideoData === null) {
+            return;
+        }
+
+        const videoTitleContainer = document.createElement("p");
+        videoTitleContainer.className = "current title"
+        videoTitleContainer.innerText = currentVideoData.title;
+
+        const chipsContainer = document.createElement("div");
+        chipsContainer.className = "current chips-container"
+        chipsContainer.innerHTML = `
+        <div class="chip current">
+        <div class="icon">⚖️</div>
+        <p class="content">${(currentVideoData.filesize / (1024 ** 2)).toFixed(2)}MB</p>
+        </div>
+        <div class="chip current">
+        <div class="icon">🕒</div>
+        <p class="content">${Date(currentVideoData.modified_time).toLocaleLowerCase()}</p>
+        </div>
+        `
+
+        const copyButton = document.createElement("div");
+        copyButton.className = "cool-button"
+        copyButton.innerText = "📋 Copy"
+
+        function copyVidInfo(event) {
+            if (currentVideoData !== null && currentVideoData.id === videoId) {
+                const origin = window.location.origin;
+                const originalHTML = event.target.innerHTML
+
+                const textToCopy = JSON.stringify({
+                    id: currentVideoData.id,
+                    title: currentVideoData.title,
+                    videoUrl: origin + "/api/video?video_id=" + currentVideoData.id,
+                    videoSize: currentVideoData.filesize,
+                    videoSizeNorm: (currentVideoData.filesize / (1024 ** 2)).toFixed(2) + "MB",
+                    thumbnail: origin + "/api/thumbnail?video_id=" + currentVideoData.id,
+                    modified_time: currentVideoData.modified_time,
+                    modified_time_localized: Date(currentVideoData.modified_time).toLocaleUpperCase(),
+                })
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    event.target.innerHTML = "✅ Copied!"
+                }).catch((err) => {
+                    event.target.innerHTML = "❎ Error!"
+                    console.error("Copy Error:", err)
+                }).finally(() => {
+                    setTimeout(() => {
+                        event.target.innerHTML = originalHTML
+                    }, 2000)
+                })
+            }
+        }
+        chipsContainer.appendChild(copyButton);
+
+        [...chipsContainer.children].forEach((elem) => { elem.addEventListener("click", copyVidInfo) })
+
+        videoInfoContainer.appendChild(videoTitleContainer);
+        videoInfoContainer.appendChild(chipsContainer);
+
+    }
+
     function initialize() {
         if (!videoId) {
             UtilsModule.showPlayerError("Error: No video ID provided");
@@ -128,7 +193,7 @@ const PlayerModule = (() => {
                     "captions", "settings", "pip", "airplay", "download", "fullscreen",
                 ],
                 urls: {
-                    download: `http://localhost:8000/api/video?video_id=${videoId}`
+                    download: `/api/video?video_id=${videoId}`
                 }
             });
 
@@ -138,7 +203,7 @@ const PlayerModule = (() => {
                 poster: `/api/thumbnail?video_id=${videoId}`,
             };
 
-            player.on("ready", () => {
+            player.on("loadedmetadata", () => {
                 clearTimeout(plyrTimeoutId);
                 if (!playerInitialized) {
                     loadingState.style.display = "none";
@@ -163,6 +228,7 @@ const PlayerModule = (() => {
 
     return {
         initialize: initialize,
+        setVideoInfo: setVideoInfo,
     };
 })();
 
@@ -197,15 +263,25 @@ function renderVideos() {
 
                     PlayerModule.initialize(); // Re-initialize the player with the new video ID
                     renderVideos();
-                    await fetch(`/api/stats?video_id=${videoId}`).then(async (resp) => {
-                        vidData = await resp.json()
-                        document.title = vidData.title;
-                    }).catch((error) => { console.error(error) })
+                    setVideoInfoAndPageTitle();
                 }
             });
         },
         thumbnailCallback: () => { },
     })
+}
+
+function setVideoInfoAndPageTitle() {
+    fetch(`/api/stats?video_id=${videoId}`).then((resp) => {
+        if (!resp.ok) {
+            throw new Error("Unable to get video stats!");
+        }
+        resp.json().then((vidData) => {
+            currentVideoData = vidData;
+            document.title = currentVideoData.title;
+            PlayerModule.setVideoInfo();
+        })
+    }).catch((error) => { console.error(error) })
 }
 
 // --- DOMContentLoaded Event Listener ---
@@ -222,10 +298,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Event listener for retry button
     retryButton.addEventListener("click", PlayerModule.initialize);
 
-    await fetch(`/api/stats?video_id=${videoId}`).then(async (resp) => {
-        vidData = await resp.json()
-        document.title = vidData.title;
-    }).catch((error) => { console.error(error) })
+    setVideoInfoAndPageTitle();
     videos = await fetchVideos()
     renderVideos();
 

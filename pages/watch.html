@@ -11,6 +11,7 @@
 
         <!-- Stylesheet (CSS) -->
         <link rel="stylesheet" href="./static/css/all.min.css">
+        <link rel="stylesheet" href="./static/css/main.css">
         <link rel="stylesheet" href="./static/css/plyr.css">
         <link rel="stylesheet" href="./static/css/watch.css">
 
@@ -46,6 +47,17 @@
                 <video
                     id="player" playsinline="playsinline" controls="controls" style="display: none"><!-- Source will be added by JavaScript -->
                 </video>
+
+                <div class="video-info current">
+                    <p class="current title"></p>
+                    <div class="chips-container current">
+                        <div class="chip">
+                            <p class="content"></p>
+                            <div class="icon"></div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <div class="video-library">
