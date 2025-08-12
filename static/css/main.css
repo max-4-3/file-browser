@@ -177,7 +177,7 @@ a {
 }
 
 #vidThumbnail {
-    width: 100%;asas
+    width: 100;
     aspect-ratio: 16 / 9;
     height: auto;
     object-fit: contain;
