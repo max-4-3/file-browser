@@ -150,6 +150,24 @@ a {
     border: 4px solid var(--favourite);
 }
 
+.card.favourite .video-info {
+    background: var(--favourite);
+}
+
+.card.favourite .chip {
+    background: var(--light);
+    color: var(--darker);
+}
+
+.card.favourite .chip:hover {
+    background-color: var(--darker);
+    color: var(--light);
+}
+
+.card.favourite .duration-badge {
+    background-color: var(--favourite);
+}
+
 .card:hover .overlays {
     opacity: 1;
 }
@@ -159,22 +177,11 @@ a {
 }
 
 #vidThumbnail {
-    width: 100%;
+    width: 100%;asas
     aspect-ratio: 16 / 9;
     height: auto;
-    object-fit: cover;
-    background: linear-gradient(to top, var(--dark), var(--darker));
-}
-
-#vidThumbnail::before {
-    content: '';
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(to bottom, black, transparent);
-    top: 0;
-    left: 0;
-    pointer-events: none;
+    object-fit: contain;
+    background: linear-gradient(to bottom, var(--dark), var(--darker));
 }
 
 .overlays {
