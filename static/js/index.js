@@ -12,6 +12,30 @@ async function fetchVideos(apiEndpoint = "/api/videos") {
     return data.videos
 }
 
+function deleteVideo(videoData, cardElement) {
+    fetch('/api/video?video_id=' + videoData.id, {
+        method: "DELETE",
+        headers: {
+            user: "maxim",
+        }
+    }).then((response) => {
+        if (response.ok) {
+            let index = -1;
+            videos.forEach((val, idx) => {
+                if (val.id === videoData.id) {
+                    index = idx
+                }
+            })
+
+            if (index !== -1) {
+                videos.splice(index, 1)
+                cardElement.remove()
+                MainModule.showToast('Video Removed!', 'success')
+            }
+        }
+    }).catch(err => {MainModule.showToast('Failed to Remove Video!', 'danger'); console.log(err)})
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
 
     videos = await fetchVideos();
@@ -21,7 +45,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             return sortDescending
                 ? b.modified_time - a.modified_time
                 : a.modified_time - b.modified_time;
-        }
+        },
+        deleteBtnCallback: deleteVideo,
     });
 
     document.getElementById("vidCount").innerText = `${videos.length} Videos`;
@@ -37,13 +62,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return sortDescending
                     ? b.modified_time - a.modified_time
                     : a.modified_time - b.modified_time;
-            }
+            },
+            deleteBtnCallback: deleteVideo
         });
         saveSortingConfig(sortDescending);
     });
     document.getElementById("sortBtn").textContent = sortDescending ? "👇🏻👶🏻" : "👇🏻🧑🏻";
 
-    document.getElementById("reloadBtn").addEventListener("click", async () => {
+    document.getElementById("reloadBtn").addEventListener("click", async (e) => {
         const textSpan = document.getElementById("reloadText");
 
         const ogTxt = textSpan.textContent;
@@ -54,7 +80,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         textSpan.after(spinner);
 
         try {
-            const response = await fetch("/reload", { method: "POST" });
+            const response = await fetch("/reload" + (e.shiftKey ? "?hard=true" : ""), { method: "POST" });
             if (response.ok) {
                 location.reload(); // Reload the page
             } else {

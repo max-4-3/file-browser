@@ -96,19 +96,25 @@ const PlayerModule = (() => {
         videoTitleContainer.className = "current title"
         videoTitleContainer.innerText = currentVideoData.title;
 
+        const videoModifiedTime = new Date(currentVideoData.modified_time * 1000)
+
         const chipsContainer = document.createElement("div");
         chipsContainer.className = "current chips-container"
         chipsContainer.innerHTML = `
         <div class="chip current">
-        <div class="icon">⚖️</div>
+        <p class="icon">⚖️</p>
         <p class="content">${(currentVideoData.filesize / (1024 ** 2)).toFixed(2)}MB</p>
         </div>
         <div class="chip current">
-        <div class="icon">🕒</div>
-        <p class="content">${Date(currentVideoData.modified_time).toLocaleLowerCase()}</p>
+        <p class="icon">🕒</p>
+        <p class="content">${videoModifiedTime.toLocaleString()} (${MainModule.getRelativeTime(videoModifiedTime.getTime() / 1000)})</p>
         </div>
-        `
+        `;
+        // Add Copy Event to all Chips!
+        [...chipsContainer.children].forEach((elem) => { elem.addEventListener("click", copyVidInfo) })
 
+
+        // Make Custom Buttons!
         const copyButton = document.createElement("div");
         copyButton.className = "cool-button"
         copyButton.innerText = "📋 Copy"
@@ -126,7 +132,8 @@ const PlayerModule = (() => {
                     videoSizeNorm: (currentVideoData.filesize / (1024 ** 2)).toFixed(2) + "MB",
                     thumbnail: origin + "/api/thumbnail?video_id=" + currentVideoData.id,
                     modified_time: currentVideoData.modified_time,
-                    modified_time_localized: Date(currentVideoData.modified_time).toLocaleUpperCase(),
+                    modified_time_localized: videoModifiedTime.toLocaleString(),
+                    relative_time: MainModule.getRelativeTime(videoModifiedTime.getTime() / 1000)
                 })
                 navigator.clipboard.writeText(textToCopy).then(() => {
                     event.target.innerHTML = "✅ Copied!"
@@ -140,10 +147,19 @@ const PlayerModule = (() => {
                 })
             }
         }
-        chipsContainer.appendChild(copyButton);
 
-        [...chipsContainer.children].forEach((elem) => { elem.addEventListener("click", copyVidInfo) })
+        const deleteVideoButton = document.createElement("div");
+        deleteVideoButton.className = "cool-button";
+        deleteVideoButton.innerText = "🗑️ Delete"
+        deleteVideoButton.style.background = "var(--danger, rgb(200,0,0))";
+        deleteVideoButton.style.color = "var(--light, rgb(200,200,200))";
 
+        deleteVideoButton.addEventListener("click", (e) => {
+            deleteVideo(currentVideoData, document.createElement("span"))
+            deleteVideoButton.innerText = "✅ Deleted";
+        }, { once: true });
+
+        chipsContainer.append(copyButton, deleteVideoButton);
         videoInfoContainer.appendChild(videoTitleContainer);
         videoInfoContainer.appendChild(chipsContainer);
 
@@ -241,6 +257,30 @@ async function fetchVideos(apiEndpoint = "/api/videos") {
     return data.videos
 }
 
+function deleteVideo(videoData, cardElement) {
+    fetch('/api/video?video_id=' + videoData.id, {
+        method: "DELETE",
+        headers: {
+            user: "maxim",
+        }
+    }).then((response) => {
+        if (response.ok) {
+            let index = -1;
+            videos.forEach((val, idx) => {
+                if (val.id === videoData.id) {
+                    index = idx
+                }
+            })
+
+            if (index !== -1) {
+                videos.splice(index, 1)
+                cardElement.remove()
+                MainModule.showToast('Video Removed!', 'success')
+            }
+        }
+    }).catch(e => { MainModule.showToast('Unable to Remove Video!', 'danger'); console.log(e) })
+}
+
 function renderVideos() {
     MainModule.renderVideos({
         videos: videos,
@@ -268,6 +308,7 @@ function renderVideos() {
             });
         },
         thumbnailCallback: () => { },
+        deleteBtnCallback: deleteVideo,
     })
 }
 

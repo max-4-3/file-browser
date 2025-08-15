@@ -1,5 +1,6 @@
 export const MainModule = (() => {
     let favourites = JSON.parse(localStorage.getItem("favourites") || "[]");
+
     if (!Array.isArray(favourites)) {
         favourites = [];
     }
@@ -30,7 +31,8 @@ export const MainModule = (() => {
         video,
         favouriteBtnCallback = (element, videoData) => { toggleFavourite(element, videoData.id) },
         isFavouriteCallback = (videoData) => { return isFavourite(videoData.id) },
-        thumbnailCallback = (videoData) => { window.open(`watch?id=${videoData.id}`) }
+        thumbnailCallback = (videoData) => { window.open(`watch?id=${videoData.id}`) },
+        deleteBtnCallback = (video, cardElement) => { console.log('Video Deleted: ' + video.id); cardElement.remove() },
     }) {
         const card = document.createElement("div");
         const isFav = isFavouriteCallback(video);
@@ -49,6 +51,9 @@ export const MainModule = (() => {
         ${isFav ? '🩷' : '🤍'}
         </div>
         <a id="downloadVidBtn" class="overlay-item" href="/api/video/?video_id=${video.id}" download="${video.title}.mp4">🔽</a>
+        <div id="deleteVidBtn" class="overlay-item">
+        🗑️
+        </div>
         </div>
         <img id="vidThumbnail" src="/api/thumbnail?video_id=${video.id}" loading="lazy" alt="${video.title}">
         <div class="duration-badge">${video.duration}</div>
@@ -61,6 +66,11 @@ export const MainModule = (() => {
         });
         thumbnailContainer.querySelector("img").addEventListener("click", () => thumbnailCallback(video));
 		
+        const delBtn = thumbnailContainer.querySelector("#deleteVidBtn")
+        if (delBtn instanceof Element) {
+            delBtn.addEventListener("click", e => {deleteBtnCallback(video, card)})
+        }
+
 		const videoInfoContaier = document.createElement("div");
 		videoInfoContaier.className = "video-info";
 
@@ -70,12 +80,17 @@ export const MainModule = (() => {
 
 		const sizeChip = document.createElement("div");
 		sizeChip.className = "video-size chip";
-		sizeChip.innerHTML = `<p class="content"> ${(parseInt(video.filesize) / (1024 ** 2)).toFixed(2)}MB </p>`
+		sizeChip.innerHTML = `<p class="icon">💾</p><p class="content">${(parseInt(video.filesize) / (1024 ** 2)).toFixed(2)}MB</p>`
+
+		const timeDiffChip = document.createElement("div");
+		timeDiffChip.className = "time-diff chip"
+		timeDiffChip.innerHTML = `<p class="icon">🕧️</p><p class="content">${getRelativeTime(video.modified_time)}</p>`
 
 		const chipContainer = document.createElement("div");
 		chipContainer.className = "chips-container";
 
-		chipContainer.appendChild(sizeChip)
+		chipContainer.appendChild(timeDiffChip);
+		chipContainer.appendChild(sizeChip);
 
 		videoInfoContaier.appendChild(titleContainer);
 		videoInfoContaier.appendChild(chipContainer);
@@ -98,6 +113,7 @@ export const MainModule = (() => {
         favouriteBtnCallback = (favBtnElem, videoData) => { toggleFavourite(favBtnElem, videoData.id) },
         isFavouriteCallback = (videoData) => { return isFavourite(videoData.id) },
         thumbnailCallback = (videoData) => { window.open(`watch?id=${videoData.id}`) },
+        deleteBtnCallback = (video, cardElement) => { console.log('Video Deleted: ' + video.id); cardElement.remove() },
         excludeIds = null
     }) {
 
@@ -136,7 +152,8 @@ export const MainModule = (() => {
                 video: video,
                 favouriteBtnCallback: favouriteBtnCallback,
                 isFavouriteCallback: isFavouriteCallback,
-                thumbnailCallback: thumbnailCallback
+                thumbnailCallback: thumbnailCallback,
+                deleteBtnCallback: deleteBtnCallback,
             });
             if (videoCard && videoCard instanceof Element) {
                 try {
@@ -148,8 +165,75 @@ export const MainModule = (() => {
             }
         });
     }
+
+    function showToast(message, type = 'primary', interval = 2000) {
+        let toastContainer = document.querySelector("#toast-container");
+
+        const icons = {
+            primary: 'ℹ️',
+            success: '✅',
+            danger: '❌',
+            warning: '⚠️'
+        };
+
+        if (toastContainer == null) {
+            toastContainer = document.createElement("div");
+            toastContainer.id = "toast-container";
+            document.body.appendChild(toastContainer);
+        }
+
+        const toast = document.createElement("div");
+        toast.className = "toast " + type;
+        toast.innerHTML = `
+        <p class="icon">${icons[type] || 'ℹ️'}</p>
+        <p class="message">${message}</p>
+        `
+        function removeToast() {
+            if (toast.classList.contains("hide")) {
+                toast.remove();
+                return;
+            }
+
+            toast.classList.add("hide")
+            toast.addEventListener("animationend", removeToast)
+        }
+
+        toastContainer.appendChild(toast)
+        setTimeout(removeToast, interval)
+
+    }
+
+	function getRelativeTime(timestampInSeconds) {
+		const currentTime = Date.now() / 1000; // seconds
+		const diff = currentTime - timestampInSeconds;
+
+		// Just Now condition
+		if (diff < 600) return "Just Now";
+
+		const units = [
+			{ name: "decade", secs: 315569260 }, // ~10 years
+			{ name: "year", secs: 31556926 },    // ~365.24 days
+			{ name: "month", secs: 2629743 },    // ~30.44 days
+			{ name: "week", secs: 604800 },
+			{ name: "day", secs: 86400 },
+			{ name: "hour", secs: 3600 },
+			{ name: "minute", secs: 60 }
+		];
+
+		for (const unit of units) {
+			if (diff >= unit.secs) {
+				const value = Math.floor(diff / unit.secs);
+				return `${value} ${unit.name}${value > 1 ? "s" : ""} ago`;
+			}
+		}
+
+		return "A Long Time Ago..."; // fallback 
+	}
+
     return {
-        renderVideos: renderVideos
+        renderVideos: renderVideos,
+        showToast: showToast,
+		getRelativeTime: getRelativeTime,
     }
 })();
 

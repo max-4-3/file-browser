@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from src.data_store import get_session, Session, Video, VideoServer, os
+from src.data_store import get_session, Session, VideoServer, os
 from fastapi.responses import FileResponse
 from sqlmodel import select
 
