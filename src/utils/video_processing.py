@@ -1,6 +1,6 @@
 import asyncio, json, os
 from uuid import uuid4
-from src import THUMB_PATH
+from src import THUMB_PATH, PERFORMANCE
 from src.models import Video, VideoServer
 
 
@@ -30,7 +30,7 @@ async def generate_thumbnail(vid_path: str, stream_idx: int, vid_duration: str |
     root_path = root_path or THUMB_PATH
 
     os.makedirs(root_path, exist_ok=True)
-    output_path = os.path.join(root_path or os.getcwd(), file_name_prefix + uuid4().hex + ".png")
+    output_path = os.path.join(root_path or os.getcwd(), file_name_prefix + uuid4().hex + (".webp" if PERFORMANCE else ".png")) # Add .webp for faster loading (client side) & less storage
 
     if stream_idx < -1:
         # Fast seek before input
@@ -41,7 +41,6 @@ async def generate_thumbnail(vid_path: str, stream_idx: int, vid_duration: str |
             "-t", "1",  # Optional: only decode 1s
             "-i", vid_path,
             "-frames:v", "1",
-            "-c:v", "png",
             "-y",
             output_path
         ]
@@ -51,11 +50,15 @@ async def generate_thumbnail(vid_path: str, stream_idx: int, vid_duration: str |
             "ffmpeg",
             "-i", vid_path,
             "-map", f"0:{stream_idx}",
-            "-c:v", "png",
             "-frames:v", "1",
             "-y",
             output_path
         ]
+        
+    if PERFORMANCE:
+        optimization = ["-vf", "scale=640:-1"]      # Scales the image down to 640 (maintaing ar)
+        cmd = cmd[:-1] + optimization + [cmd[-1]]   # Add optimization before output
+    
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.DEVNULL,

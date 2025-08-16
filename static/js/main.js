@@ -128,6 +128,7 @@ export const MainModule = (() => {
 
         if (!videos || !Array.isArray(videos) || videos.length === 0) {
             console.warn("Either no videos found or length is zero or Array.isArray for videos is False.")
+            videoGrid.classList.add("no-videos");
             videoGrid.innerHTML = "<h1> No Video Available! </h1>";
             return;
         }

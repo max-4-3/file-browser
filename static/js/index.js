@@ -36,9 +36,7 @@ function deleteVideo(videoData, cardElement) {
     }).catch(err => {MainModule.showToast('Failed to Remove Video!', 'danger'); console.log(err)})
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-
-    videos = await fetchVideos();
+function renderVideos() {
     MainModule.renderVideos({
         videos: videos,
         sortingFunction: (a, b) => {
@@ -48,6 +46,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         },
         deleteBtnCallback: deleteVideo,
     });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    videos = await fetchVideos();
+    renderVideos();
 
     document.getElementById("vidCount").innerText = `${videos.length} Videos`;
 
@@ -56,15 +60,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.getElementById("sortBtn").textContent = sortDescending
             ? "👇🏻👶🏻"
             : "👇🏻🧑🏻";
-        MainModule.renderVideos({
-            videos: videos,
-            sortingFunction: (a, b) => {
-                return sortDescending
-                    ? b.modified_time - a.modified_time
-                    : a.modified_time - b.modified_time;
-            },
-            deleteBtnCallback: deleteVideo
-        });
+        renderVideos();
         saveSortingConfig(sortDescending);
     });
     document.getElementById("sortBtn").textContent = sortDescending ? "👇🏻👶🏻" : "👇🏻🧑🏻";

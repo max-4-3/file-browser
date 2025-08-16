@@ -16,8 +16,7 @@ async def get_thumbnail(video_id: str, session: Session = Depends(get_session)):
 
     response = FileResponse(
         video.thumbnail_path,
-        filename=video.video.title,
-        media_type="image/png"
+        filename=video.video.title
     )
     response.headers["Access-Control-Allow-Origin"] = "*"
 

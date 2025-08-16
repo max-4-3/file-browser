@@ -62,9 +62,10 @@ async def get_videos(session: Session = Depends(get_session)):
 async def get_stat(video_id: str, session: Session = Depends(get_session)):
     video: VideoServer | None = session.exec(select(VideoServer).where(VideoServer.video_id == video_id)).first()
     if not video:
-        raise HTTPException(400, detail="Unable to find video's infor related to id: {}".format(video_id))
+        raise HTTPException(400, detail="Unable to find video's info related to id: {}".format(video_id))
 
     if not os.path.exists(video.video_path):
         raise HTTPException(404, detail="File doesn't exist on server!")
 
     return video.video
+
