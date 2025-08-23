@@ -74,8 +74,8 @@
 }
 
 .plyr--full-ui *,
-.plyr--full-ui ::after,
-.plyr--full-ui ::before {
+.plyr--full-ui :after,
+.plyr--full-ui :before {
     box-sizing: inherit
 }
 
@@ -207,8 +207,8 @@ a.plyr__control {
 .plyr__control.plyr__control--pressed .label--not-pressed,
 .plyr__control:not(.plyr__control--pressed) .icon--pressed,
 .plyr__control:not(.plyr__control--pressed) .label--pressed,
-a.plyr__control::after,
-a.plyr__control::before {
+a.plyr__control:after,
+a.plyr__control:before {
     display: none
 }
 
@@ -249,7 +249,7 @@ a.plyr__control::before {
 }
 
 .plyr__controls .plyr__controls__item.plyr__progress__container:first-child,
-.plyr__controls .plyr__controls__item.plyr__time + .plyr__time,
+.plyr__controls .plyr__controls__item.plyr__time+.plyr__time,
 .plyr__controls .plyr__controls__item.plyr__time:first-child {
     padding-left: 0
 }
@@ -307,12 +307,12 @@ a.plyr__control::before {
     z-index: 3
 }
 
-.plyr__menu__container > div {
+.plyr__menu__container>div {
     overflow: hidden;
     transition: height .35s cubic-bezier(.4, 0, .2, 1), width .35s cubic-bezier(.4, 0, .2, 1)
 }
 
-.plyr__menu__container::after {
+.plyr__menu__container:after {
     border: 4px solid #0000;
     border-top-color: #ffffffe6;
     border: var(--plyr-menu-arrow-size, 4px) solid #0000;
@@ -355,13 +355,13 @@ a.plyr__control::before {
     width: 100%
 }
 
-.plyr__menu__container .plyr__control > span {
+.plyr__menu__container .plyr__control>span {
     align-items: inherit;
     display: flex;
     width: 100%
 }
 
-.plyr__menu__container .plyr__control::after {
+.plyr__menu__container .plyr__control:after {
     border: 4px solid #0000;
     border: var(--plyr-menu-item-arrow-size, 4px) solid #0000;
     content: "";
@@ -375,15 +375,15 @@ a.plyr__control::before {
     padding-right: calc(var(--plyr-control-spacing, 10px)*.7*4)
 }
 
-.plyr__menu__container .plyr__control--forward::after {
+.plyr__menu__container .plyr__control--forward:after {
     border-left-color: #728197;
     border-left-color: var(--plyr-menu-arrow-color, #728197);
     right: 6.5px;
     right: calc(var(--plyr-control-spacing, 10px)*.7*1.5 - var(--plyr-menu-item-arrow-size, 4px))
 }
 
-.plyr__menu__container .plyr__control--forward:focus-visible::after,
-.plyr__menu__container .plyr__control--forward:hover::after {
+.plyr__menu__container .plyr__control--forward:focus-visible:after,
+.plyr__menu__container .plyr__control--forward:hover:after {
     border-left-color: initial
 }
 
@@ -401,14 +401,14 @@ a.plyr__control::before {
     width: calc(100% - var(--plyr-control-spacing, 10px)*.7*2)
 }
 
-.plyr__menu__container .plyr__control--back::after {
+.plyr__menu__container .plyr__control--back:after {
     border-right-color: #728197;
     border-right-color: var(--plyr-menu-arrow-color, #728197);
     left: 6.5px;
     left: calc(var(--plyr-control-spacing, 10px)*.7*1.5 - var(--plyr-menu-item-arrow-size, 4px))
 }
 
-.plyr__menu__container .plyr__control--back::before {
+.plyr__menu__container .plyr__control--back:before {
     background: #dcdfe5;
     background: var(--plyr-menu-back-border-color, #dcdfe5);
     box-shadow: 0 1px 0 #fff;
@@ -424,8 +424,8 @@ a.plyr__control::before {
     top: 100%
 }
 
-.plyr__menu__container .plyr__control--back:focus-visible::after,
-.plyr__menu__container .plyr__control--back:hover::after {
+.plyr__menu__container .plyr__control--back:focus-visible:after,
+.plyr__menu__container .plyr__control--back:hover:after {
     border-right-color: initial
 }
 
@@ -434,12 +434,12 @@ a.plyr__control::before {
     padding-left: calc(var(--plyr-control-spacing, 10px)*.7)
 }
 
-.plyr__menu__container .plyr__control[role=menuitemradio]::after,
-.plyr__menu__container .plyr__control[role=menuitemradio]::before {
+.plyr__menu__container .plyr__control[role=menuitemradio]:after,
+.plyr__menu__container .plyr__control[role=menuitemradio]:before {
     border-radius: 100%
 }
 
-.plyr__menu__container .plyr__control[role=menuitemradio]::before {
+.plyr__menu__container .plyr__control[role=menuitemradio]:before {
     background: #0000001a;
     content: "";
     display: block;
@@ -451,7 +451,7 @@ a.plyr__control::before {
     width: 16px
 }
 
-.plyr__menu__container .plyr__control[role=menuitemradio]::after {
+.plyr__menu__container .plyr__control[role=menuitemradio]:after {
     background: #fff;
     border: 0;
     height: 6px;
@@ -463,18 +463,18 @@ a.plyr__control::before {
     width: 6px
 }
 
-.plyr__menu__container .plyr__control[role=menuitemradio][aria-checked=true]::before {
+.plyr__menu__container .plyr__control[role=menuitemradio][aria-checked=true]:before {
     background: #00b2ff;
     background: var(--plyr-control-toggle-checked-background, var(--plyr-color-main, var(--plyr-color-main, #00b2ff)))
 }
 
-.plyr__menu__container .plyr__control[role=menuitemradio][aria-checked=true]::after {
+.plyr__menu__container .plyr__control[role=menuitemradio][aria-checked=true]:after {
     opacity: 1;
     transform: translateY(-50%) scale(1)
 }
 
-.plyr__menu__container .plyr__control[role=menuitemradio]:focus-visible::before,
-.plyr__menu__container .plyr__control[role=menuitemradio]:hover::before {
+.plyr__menu__container .plyr__control[role=menuitemradio]:focus-visible:before,
+.plyr__menu__container .plyr__control[role=menuitemradio]:hover:before {
     background: #23282f1a
 }
 
@@ -686,14 +686,14 @@ a.plyr__control::before {
     font-size: var(--plyr-font-size-time, var(--plyr-font-size-small, 13px))
 }
 
-.plyr__time + .plyr__time::before {
+.plyr__time+.plyr__time:before {
     content: "⁄";
     margin-right: 10px;
     margin-right: var(--plyr-control-spacing, 10px)
 }
 
 @media (max-width:767px) {
-    .plyr__time + .plyr__time {
+    .plyr__time+.plyr__time {
         display: none
     }
 }
@@ -728,7 +728,7 @@ a.plyr__control::before {
     z-index: 2
 }
 
-.plyr__tooltip::before {
+.plyr__tooltip:before {
     border-left: 4px solid #0000;
     border-left: var(--plyr-tooltip-arrow-size, 4px) solid #0000;
     border-right: 4px solid #0000;
@@ -757,42 +757,42 @@ a.plyr__control::before {
     z-index: 3
 }
 
-.plyr__controls > .plyr__control:first-child .plyr__tooltip,
-.plyr__controls > .plyr__control:first-child + .plyr__control .plyr__tooltip {
+.plyr__controls>.plyr__control:first-child .plyr__tooltip,
+.plyr__controls>.plyr__control:first-child+.plyr__control .plyr__tooltip {
     left: 0;
     transform: translateY(10px) scale(.8);
     transform-origin: 0 100%
 }
 
-.plyr__controls > .plyr__control:first-child .plyr__tooltip::before,
-.plyr__controls > .plyr__control:first-child + .plyr__control .plyr__tooltip::before {
+.plyr__controls>.plyr__control:first-child .plyr__tooltip:before,
+.plyr__controls>.plyr__control:first-child+.plyr__control .plyr__tooltip:before {
     left: 16px;
     left: calc(var(--plyr-control-icon-size, 18px)/2 + var(--plyr-control-spacing, 10px)*.7)
 }
 
-.plyr__controls > .plyr__control:last-child .plyr__tooltip {
+.plyr__controls>.plyr__control:last-child .plyr__tooltip {
     left: auto;
     right: 0;
     transform: translateY(10px) scale(.8);
     transform-origin: 100% 100%
 }
 
-.plyr__controls > .plyr__control:last-child .plyr__tooltip::before {
+.plyr__controls>.plyr__control:last-child .plyr__tooltip:before {
     left: auto;
     right: 16px;
     right: calc(var(--plyr-control-icon-size, 18px)/2 + var(--plyr-control-spacing, 10px)*.7);
     transform: translateX(50%)
 }
 
-.plyr__controls > .plyr__control:first-child .plyr__tooltip--visible,
-.plyr__controls > .plyr__control:first-child + .plyr__control .plyr__tooltip--visible,
-.plyr__controls > .plyr__control:first-child + .plyr__control:focus-visible .plyr__tooltip,
-.plyr__controls > .plyr__control:first-child + .plyr__control:hover .plyr__tooltip,
-.plyr__controls > .plyr__control:first-child:focus-visible .plyr__tooltip,
-.plyr__controls > .plyr__control:first-child:hover .plyr__tooltip,
-.plyr__controls > .plyr__control:last-child .plyr__tooltip--visible,
-.plyr__controls > .plyr__control:last-child:focus-visible .plyr__tooltip,
-.plyr__controls > .plyr__control:last-child:hover .plyr__tooltip {
+.plyr__controls>.plyr__control:first-child .plyr__tooltip--visible,
+.plyr__controls>.plyr__control:first-child+.plyr__control .plyr__tooltip--visible,
+.plyr__controls>.plyr__control:first-child+.plyr__control:focus-visible .plyr__tooltip,
+.plyr__controls>.plyr__control:first-child+.plyr__control:hover .plyr__tooltip,
+.plyr__controls>.plyr__control:first-child:focus-visible .plyr__tooltip,
+.plyr__controls>.plyr__control:first-child:hover .plyr__tooltip,
+.plyr__controls>.plyr__control:last-child .plyr__tooltip--visible,
+.plyr__controls>.plyr__control:last-child:focus-visible .plyr__tooltip,
+.plyr__controls>.plyr__control:last-child:hover .plyr__tooltip {
     transform: translate(0) scale(1)
 }
 
@@ -1021,7 +1021,7 @@ a.plyr__control::before {
     width: 100%
 }
 
-.plyr--full-ui .plyr__video-embed > .plyr__video-embed__container {
+.plyr--full-ui .plyr__video-embed>.plyr__video-embed__container {
     padding-bottom: 240%;
     position: relative;
     transform: translateY(-38.28125%)
@@ -1159,7 +1159,7 @@ a.plyr__control::before {
     display: block
 }
 
-.plyr:fullscreen .plyr__control .icon--exit-fullscreen + svg {
+.plyr:fullscreen .plyr__control .icon--exit-fullscreen+svg {
     display: none
 }
 
@@ -1196,7 +1196,7 @@ a.plyr__control::before {
     display: block
 }
 
-.plyr--fullscreen-fallback .plyr__control .icon--exit-fullscreen + svg {
+.plyr--fullscreen-fallback .plyr__control .icon--exit-fullscreen+svg {
     display: none
 }
 
@@ -1223,14 +1223,14 @@ a.plyr__control::before {
     z-index: -1
 }
 
-.plyr__ads > div,
-.plyr__ads > div iframe {
+.plyr__ads>div,
+.plyr__ads>div iframe {
     height: 100%;
     position: absolute;
     width: 100%
 }
 
-.plyr__ads::after {
+.plyr__ads:after {
     background: #23282f;
     border-radius: 2px;
     bottom: 10px;
@@ -1246,7 +1246,7 @@ a.plyr__control::before {
     z-index: 3
 }
 
-.plyr__ads:empty::after {
+.plyr__ads:empty:after {
     display: none
 }
 
@@ -1289,7 +1289,7 @@ a.plyr__control::before {
     transform: translate(0) scale(1)
 }
 
-.plyr__preview-thumb::before {
+.plyr__preview-thumb:before {
     border-left: 4px solid #0000;
     border-left: var(--plyr-tooltip-arrow-size, 4px) solid #0000;
     border-right: 4px solid #0000;
@@ -1317,7 +1317,7 @@ a.plyr__control::before {
 }
 
 .plyr__preview-thumb__image-container img,
-.plyr__preview-thumb__image-container::after {
+.plyr__preview-thumb__image-container:after {
     height: 100%;
     left: 0;
     position: absolute;
@@ -1325,7 +1325,7 @@ a.plyr__control::before {
     width: 100%
 }
 
-.plyr__preview-thumb__image-container::after {
+.plyr__preview-thumb__image-container:after {
     border-radius: inherit;
     box-shadow: inset 0 0 0 1px #00000026;
     content: "";
