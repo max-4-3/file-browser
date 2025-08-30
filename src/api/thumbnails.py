@@ -7,16 +7,19 @@ router = APIRouter()
 
 @router.get('/thumbnail')
 async def get_thumbnail(video_id: str, session: Session = Depends(get_session)):
-    video: VideoServer | None = session.exec(select(VideoServer).where(VideoServer.video_id == video_id)).first()
-    if not video:
+    video_server: VideoServer | None = session.exec(
+        select(VideoServer).where(VideoServer.video_id == video_id)
+    ).first()
+    
+    if not video_server:
         raise HTTPException(400, detail="Unable to find video's infor related to id: {}".format(video_id))
 
-    if not os.path.exists(video.video_path):
+    if not os.path.exists(video_server.video_path):
         raise HTTPException(404, detail="File doesn't exist on server!")
 
     response = FileResponse(
-        video.thumbnail_path,
-        filename=video.video.title
+        video_server.thumbnail_path,
+        filename=video_server.video.title if video_server.video else "Untitled_thumbnail.jpg"
     )
     response.headers["Access-Control-Allow-Origin"] = "*"
 

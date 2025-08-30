@@ -20,3 +20,11 @@ class VideoServer(SQLModel, table=True):
     video_path: str
     thumbnail_path: str
 
+
+class DeletedVideo(SQLModel, table=True):
+    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+    title: str = Field(...)
+    video_path: str = Field(...)
+    filesize: int = Field(...)
+    extra_info: str = Field(default="{}")
+    
