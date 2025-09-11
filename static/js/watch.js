@@ -327,6 +327,12 @@ function renderVideos() {
                     setVideoInfoAndPageTitle();
                 }
             });
+            vidCard.addEventListener('mousedown', e => {
+                if (e.button === 1) {   // 0,1,2 = left, middle, right
+                    e.preventDefault();
+                    window.open(`/watch?id=${vidData.id}`);
+                }
+            })
         },
         thumbnailCallback: () => { },
         deleteBtnCallback: deleteVideo,

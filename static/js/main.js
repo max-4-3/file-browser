@@ -113,7 +113,6 @@ export const MainModule = (() => {
         favouriteBtnCallback = (favBtnElem, videoData) => { toggleFavourite(favBtnElem, videoData.id) },
         isFavouriteCallback = (videoData) => { return isFavourite(videoData.id) },
         thumbnailCallback = (videoData) => { window.open(`watch?id=${videoData.id}`) },
-        deleteBtnCallback = (video, cardElement) => { console.log('Video Deleted: ' + video.id); cardElement.remove() },
         excludeIds = null
     }) {
 
@@ -154,7 +153,6 @@ export const MainModule = (() => {
                 favouriteBtnCallback: favouriteBtnCallback,
                 isFavouriteCallback: isFavouriteCallback,
                 thumbnailCallback: thumbnailCallback,
-                deleteBtnCallback: deleteBtnCallback,
             });
             if (videoCard && videoCard instanceof Element) {
                 try {

@@ -21,9 +21,8 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+
 # Endpoint to reload
-
-
 @app.post("/reload")
 async def update_data_store(
         hard: bool = False,
@@ -33,6 +32,11 @@ async def update_data_store(
         return 200
     else:
         raise HTTPException(500, detail="Internal Server Error!")
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse("static/favicon.ico")
 
 
 # Serve index.html at root

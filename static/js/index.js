@@ -45,6 +45,14 @@ function renderVideos() {
                 : a.modified_time - b.modified_time;
         },
         deleteBtnCallback: deleteVideo,
+        applyFunctionOnCard: (card, videoData) => {
+            card.addEventListener('mousedown', e => {
+                if (e.button === 1) {   // 0,1,2 = left, middle, right
+                    e.preventDefault();
+                    window.open(`/watch?id=${videoData.id}`);
+                }
+            })
+        }
     });
 }
 
