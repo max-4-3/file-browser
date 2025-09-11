@@ -25,7 +25,10 @@ app.add_middleware(
 
 
 @app.post("/reload")
-async def update_data_store(hard: bool = False, session: Session = Depends(get_session)):
+async def update_data_store(
+        hard: bool = False,
+        session: Session = Depends(get_session)
+):
     if await reload_data(session, hard):
         return 200
     else:

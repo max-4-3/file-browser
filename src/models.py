@@ -27,4 +27,3 @@ class DeletedVideo(SQLModel, table=True):
     video_path: str = Field(...)
     filesize: int = Field(...)
     extra_info: str = Field(default="{}")
-    

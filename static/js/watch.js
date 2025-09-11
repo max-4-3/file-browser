@@ -227,6 +227,27 @@ const PlayerModule = (() => {
                     playerInitialized = true;
                     console.log("Plyr player loaded successfully.");
                 }
+
+				// Add Scroll Event to change video's duration
+                // Cache the elements
+                const videoElem = document.querySelector('.video-container video');
+                const progressBar = document.querySelector('.video-container .plyr__controls__item.plyr__progress__container')
+
+                // Logic
+                let seekTime = 10
+				progressBar?.addEventListener('wheel', e => {
+						if (videoElem) {
+                            videoElem.currentTime = Math.max(
+                                0,
+                                Math.min(
+                                    videoElem.currentTime - Math.sign(e.deltaY) * seekTime,
+                                    videoElem.duration
+                                )
+                            );
+							e.preventDefault();
+							return;
+						}
+					})
             });
 
             player.on("error", (event) => {

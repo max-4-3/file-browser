@@ -167,7 +167,6 @@
     text-anchor: middle;
     font-weight: bold;
     filter: drop-shadow(var(--shadow-md));
-	user-select: none;
 }
 
 .current.chips-container {

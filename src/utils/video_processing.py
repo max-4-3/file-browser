@@ -1,4 +1,6 @@
-import asyncio, json, os
+import asyncio
+import json
+import os
 from uuid import uuid4
 from src import THUMB_PATH, PERFORMANCE
 from src.models import Video, VideoServer
@@ -9,6 +11,7 @@ def convert_time(time_float: float) -> str:
     minutes = total_seconds // 60
     secs = total_seconds % 60
     return f"{minutes:02}:{secs:02}"
+
 
 def is_likely_static_image(stream):
     if stream.get("disposition", {}).get("attached_pic") == 1:
@@ -25,12 +28,23 @@ def is_likely_static_image(stream):
         return False
     return False
 
-async def generate_thumbnail(vid_path: str, stream_idx: int, vid_duration: str | float, root_path: str = None, file_name_prefix: str = "thumbnail_"):
+
+async def generate_thumbnail(
+        vid_path: str,
+        stream_idx: int,
+        vid_duration: str | float,
+        root_path: str = None,
+        file_name_prefix: str = "thumbnail_"
+):
 
     root_path = root_path or THUMB_PATH
 
     os.makedirs(root_path, exist_ok=True)
-    output_path = os.path.join(root_path or os.getcwd(), file_name_prefix + uuid4().hex + (".webp" if PERFORMANCE else ".png")) # Add .webp for faster loading (client side) & less storage
+    output_path = os.path.join(
+        root_path or os.getcwd(),
+        # Add .webp for faster loading (client side) & less storage
+        file_name_prefix + uuid4().hex + (".webp" if PERFORMANCE else ".png")
+    )
 
     if stream_idx < -1:
         # Fast seek before input
@@ -54,11 +68,13 @@ async def generate_thumbnail(vid_path: str, stream_idx: int, vid_duration: str |
             "-y",
             output_path
         ]
-        
+
     if PERFORMANCE:
-        optimization = ["-vf", "scale=640:-1"]      # Scales the image down to 640 (maintaing ar)
-        cmd = cmd[:-1] + optimization + [cmd[-1]]   # Add optimization before output
-    
+        # Scales the image down to 640 (maintaing ar)
+        optimization = ["-vf", "scale=640:-1"]
+        # Add optimization before output
+        cmd = cmd[:-1] + optimization + [cmd[-1]]
+
     process = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.DEVNULL,
@@ -67,12 +83,19 @@ async def generate_thumbnail(vid_path: str, stream_idx: int, vid_duration: str |
     await process.wait()
     return output_path if os.path.exists(output_path) else None
 
-async def generate_video_info(sem: asyncio.Semaphore, vid_path: str) -> tuple[Video, VideoServer] | None:
+
+async def generate_video_info(
+        sem: asyncio.Semaphore,
+        vid_path: str
+) -> tuple[Video, VideoServer] | None:
+
     async with sem:
         format_command = [
-            "ffprobe", "-print_format", "json", "-show_format", "-show_streams",
-            "-select_streams", "v", "-show_entries", "stream_tags:format_tags", "-v", "quiet", vid_path
+            "ffprobe", "-print_format", "json", "-show_format",
+            "-show_streams", "-select_streams", "v", "-show_entries",
+            "stream_tags:format_tags", "-v", "quiet", vid_path
         ]
+
         proc = await asyncio.create_subprocess_exec(
             *format_command,
             stdout=asyncio.subprocess.PIPE,
@@ -83,7 +106,8 @@ async def generate_video_info(sem: asyncio.Semaphore, vid_path: str) -> tuple[Vi
         if proc.returncode != 0:
             raise Exception(f"FFprobe failed on {vid_path}")
 
-        video_probe = json.loads((stdout or stderr or b'{}').decode(errors="ignore"))
+        video_probe = json.loads(
+            (stdout or stderr or b'{}').decode(errors="ignore"))
         format_info = video_probe.get("format", {})
         duration = float(format_info.get("duration", 0))
         size = int(format_info.get("size", 0))
@@ -103,7 +127,11 @@ async def generate_video_info(sem: asyncio.Semaphore, vid_path: str) -> tuple[Vi
                 thumb_stream_index = int(stream["index"])
                 break
 
-        thumb_path = await generate_thumbnail(vid_path, thumb_stream_index, duration)
+        thumb_path = await generate_thumbnail(
+            vid_path,
+            thumb_stream_index,
+            duration
+        )
         if not thumb_path:
             raise OSError("Thumbnail generation failed")
 
