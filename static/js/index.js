@@ -1,15 +1,24 @@
-import { MainModule, saveSortingConfig, sortDescending as isSortDescending } from './main.js';
+import { MainModule, saveSortingConfig, sortingState as getSortingState } from './main.js';
 
-let sortDescending = isSortDescending();
+let sortingState = getSortingState();
 let videos = [];
+let isAndroid = (function () {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    return /android/i.test(userAgent);
+})();  
 
 async function fetchVideos(apiEndpoint = "/api/videos") {
-    const res = await fetch(apiEndpoint);
-    if (!res.ok) {
-        throw new Error("Request Wasn't Ok!")
+    try {
+        const res = await fetch(apiEndpoint);
+        if (!res.ok) {
+            throw new Error("Request Wasn't Ok!");
+        }
+        const data = await res.json();
+        return data.videos;
+    } catch (error) {
+        console.error('Fetch videos error:', error);
+        return [];
     }
-    const data = await res.json()
-    return data.videos
 }
 
 function deleteVideo(videoData, cardElement) {
@@ -20,38 +29,73 @@ function deleteVideo(videoData, cardElement) {
         }
     }).then((response) => {
         if (response.ok) {
-            let index = -1;
-            videos.forEach((val, idx) => {
-                if (val.id === videoData.id) {
-                    index = idx
-                }
-            })
+            let index = videos.findIndex(val => val.id === videoData.id);
 
             if (index !== -1) {
-                videos.splice(index, 1)
-                cardElement.remove()
-                MainModule.showToast('Video Removed!', 'success')
+                videos.splice(index, 1);
+                cardElement.remove();
+                MainModule.showToast('Video Removed!', 'success');
             }
+        } else {
+            MainModule.showToast('Failed to remove video!', 'danger');
         }
-    }).catch(err => {MainModule.showToast('Failed to Remove Video!', 'danger'); console.log(err)})
+    }).catch(err => {
+        MainModule.showToast('Failed to remove video!', 'danger');
+        console.error(err);
+    });
+}
+
+function prepareVideos() {
+    // Create a shallow copy of the videos array
+    let localVideos = [...videos];
+    localVideos.sort((a, b) => {
+        function differenceOfProperty(propName, firstElem, secondElem, parseFunc = null) {
+            let valA = firstElem[propName];
+            let valB = secondElem[propName];
+
+            if (parseFunc) {
+                valA = parseFunc(valA);
+                valB = parseFunc(valB);
+            }
+            return valA - valB;
+        }
+
+
+        if (sortingState.biggerFirst) {
+            return differenceOfProperty('filesize', b, a);
+        } else if (sortingState.smallerFirst) {
+            return differenceOfProperty('filesize', a, b); 
+        } else if (sortingState.newerFirst) {
+            return differenceOfProperty('modified_time', b, a); 
+        } else if (sortingState.olderFirst) {
+            return differenceOfProperty('modified_time', a, b);
+        } else {
+            return 0;
+        }
+    });
+
+    return localVideos;
+}
+
+function setSortOrder(order) {
+    Object.keys(sortingState).forEach(key => {
+        sortingState[key] = key === order;
+    });
+    saveSortingConfig(sortingState);
 }
 
 function renderVideos() {
+    const sortedVideos = prepareVideos();
     MainModule.renderVideos({
-        videos: videos,
-        sortingFunction: (a, b) => {
-            return sortDescending
-                ? b.modified_time - a.modified_time
-                : a.modified_time - b.modified_time;
-        },
+        videos: sortedVideos,
         deleteBtnCallback: deleteVideo,
         applyFunctionOnCard: (card, videoData) => {
             card.addEventListener('mousedown', e => {
-                if (e.button === 1) {   // 0,1,2 = left, middle, right
+                if (e.button === 1) { // 0,1,2 = left, middle, right
                     e.preventDefault();
                     window.open(`/watch?id=${videoData.id}`);
                 }
-            })
+            });
         }
     });
 }
@@ -61,18 +105,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     videos = await fetchVideos();
     renderVideos();
 
-    document.getElementById("vidCount").innerText = `${videos.length} Videos`;
+    // Home Button
+    if (isAndroid) {
+        const homeButton = document.querySelector('.home-button');
+        homeButton.textContent = homeButton.textContent.split(' ').splice(0, 1);
+    }
 
-    document.getElementById("sortBtn").addEventListener("click", () => {
-        sortDescending = !sortDescending;
-        document.getElementById("sortBtn").textContent = sortDescending
-            ? "👇🏻👶🏻"
-            : "👇🏻🧑🏻";
-        renderVideos();
-        saveSortingConfig(sortDescending);
-    });
-    document.getElementById("sortBtn").textContent = sortDescending ? "👇🏻👶🏻" : "👇🏻🧑🏻";
+    // Video Count Extra Element
+    if (!isAndroid) {
+        document.getElementById("vidCount").innerText = `${videos.length} Videos`
+    } else {
+        document.getElementById("vidCount").remove();
+    }
 
+    // Reload Button Element
     document.getElementById("reloadBtn").addEventListener("click", async (e) => {
         const textSpan = document.getElementById("reloadText");
 
@@ -86,16 +132,44 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const response = await fetch("/reload" + (e.shiftKey ? "?hard=true" : ""), { method: "POST" });
             if (response.ok) {
-                location.reload(); // Reload the page
+                MainModule.showToast('Reloading page...', 'primary');
+                location.reload();
             } else {
-                alert("Server returned error: " + response.status);
+                MainModule.showToast('Server reload failed!', 'danger');
+                console.error("Server returned error: " + response.status);
             }
         } catch (err) {
+            MainModule.showToast('Failed to send reload request!', 'danger');
             console.error("Fetch failed:", err);
-            alert("Request failed");
         } finally {
             spinner.remove();
             textSpan.textContent = ogTxt;
         }
     });
-})
+
+    // Filter DropDown
+    const showDropDownBtn = document.querySelector('#showFilterDropDownButton');
+    const filterDropDownOptions = document.querySelector('#filterDropDownOptions');
+
+    showDropDownBtn.textContent = isAndroid ? showDropDownBtn.textContent.split(' ').splice(0, 1) : showDropDownBtn.textContent;
+    showDropDownBtn.addEventListener('click', () => {
+        filterDropDownOptions.classList.toggle('show');
+    });
+
+    document.querySelectorAll('#filterDropDownOptions .option').forEach(elem => {
+        if (sortingState[String(elem.dataset.sortOrder)]) elem.classList.add('selected');
+        elem.textContent = isAndroid ? elem.textContent.split(' ').splice(0, 1) : elem.textContent;
+        elem.addEventListener('click', (e) => {
+            document.querySelectorAll('#filterDropDownOptions .option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            e.target.classList.add('selected');
+
+            const orderBy = String(e.target.dataset.sortOrder);
+
+            setSortOrder(orderBy);
+            renderVideos();
+        });
+    });
+});

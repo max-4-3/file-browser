@@ -1,4 +1,4 @@
-import { MainModule, saveSortingConfig, sortDescending as isSortDescending } from "./main.js";
+import { MainModule, saveSortingConfig, sortingState as getSortingState } from './main.js';
 
 // --- Global DOM Element References (declared at top level) ---
 const playerElement = document.getElementById("player");
@@ -13,8 +13,12 @@ const vidCountElement = document.getElementById("vidCount");
 
 // --- Global/Module Variables (declared at top level) ---
 let videoId = new URLSearchParams(window.location.search).get("id");
-let sortDescending = isSortDescending();
+let sortingState = getSortingState();
 let videos = [];
+let isAndroid = (function () {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    return /android/i.test(userAgent);
+})();
 let player; // Holds the Plyr instance
 let plyrTimeoutId; // Stores the ID for the Plyr initialization timeout
 let playerInitialized = false; // Flag to indicate if *any* player (Plyr or native) is active
@@ -248,6 +252,34 @@ const PlayerModule = (() => {
 							return;
 						}
 					})
+                
+                document.querySelector('.video-container')?.addEventListener('dblclick', event => {
+                    event.preventDefault();
+                    event.stopImmediatePropagation();
+                    event.stopPropagation();
+
+                    // A threshold of 0.5 means the click must be in the outer 50% of either side.
+                    // A threshold of 0.2 means the click must be in the outer 20% of either side.
+                    const threshold = 0.5;
+                    const rect = event.target.getBoundingClientRect();
+                    const elementCenterX = rect.left + rect.width / 2;
+                    const clickX = event.clientX;
+
+                    // Calculate the distance from the center
+                    const distanceToCenter = Math.abs(clickX - elementCenterX);
+
+                    // Determine the threshold distance in pixels
+                    const thresholdDistance = (rect.width / 2) * threshold;
+
+                    // Check if the click is outside the central threshold area
+                    if (distanceToCenter > thresholdDistance) {
+                        if (clickX > elementCenterX) {
+                            videoElem.currentTime += 10
+                        } else {
+                            videoElem.currentTime -= 10;
+                        }
+                    }
+                })
             });
 
             player.on("error", (event) => {
@@ -302,14 +334,42 @@ function deleteVideo(videoData, cardElement) {
     }).catch(e => { MainModule.showToast('Unable to Remove Video!', 'danger'); console.log(e) })
 }
 
+function prepareVideos() {
+    // Create a shallow copy of the videos array
+    let localVideos = [...videos];
+    localVideos.sort((a, b) => {
+        function differenceOfProperty(propName, firstElem, secondElem, parseFunc = null) {
+            let valA = firstElem[propName];
+            let valB = secondElem[propName];
+
+            if (parseFunc) {
+                valA = parseFunc(valA);
+                valB = parseFunc(valB);
+            }
+            return valA - valB;
+        }
+
+
+        if (sortingState.biggerFirst) {
+            return differenceOfProperty('filesize', b, a);
+        } else if (sortingState.smallerFirst) {
+            return differenceOfProperty('filesize', a, b);
+        } else if (sortingState.newerFirst) {
+            return differenceOfProperty('modified_time', b, a);
+        } else if (sortingState.olderFirst) {
+            return differenceOfProperty('modified_time', a, b);
+        } else {
+            return 0;
+        }
+    });
+
+    return localVideos;
+}
+
 function renderVideos() {
+    const sortedVideos = prepareVideos();
     MainModule.renderVideos({
-        videos: videos,
-        sortingFunction: (a, b) => {
-            return sortDescending
-                ? b.modified_time - a.modified_time
-                : a.modified_time - b.modified_time;
-        },
+        videos: sortedVideos,
         excludeIds: [videoId],
         applyFunctionOnCard: (vidCard, vidData) => {
             vidCard.querySelector("img").addEventListener("click", async () => {
@@ -339,6 +399,13 @@ function renderVideos() {
     })
 }
 
+function setSortOrder(order) {
+    Object.keys(sortingState).forEach(key => {
+        sortingState[key] = key === order;
+    });
+    saveSortingConfig(sortingState);
+}
+
 function setVideoInfoAndPageTitle() {
     fetch(`/api/stats?video_id=${videoId}`).then((resp) => {
         if (!resp.ok) {
@@ -362,27 +429,49 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Initial call to load the player when the page loads
     PlayerModule.initialize();
-
-    // Event listener for retry button
-    retryButton.addEventListener("click", PlayerModule.initialize);
-
     setVideoInfoAndPageTitle();
     videos = await fetchVideos()
     renderVideos();
 
-    // Event listeners for refresh and sort buttons
+    // Retry Button
+    retryButton.addEventListener("click", PlayerModule.initialize);
+
+    // Refresh Button
     refreshButton.addEventListener("click", async () => {
         videos = await fetchVideos();
         renderVideos();
     });
 
-    sortBtn.addEventListener("click", () => {
-        sortDescending = !sortDescending;
-        sortBtn.innerText = sortDescending ? "👇🏻🧑🏻" : "👇🏻👶🏻";
-        renderVideos();
-        saveSortingConfig(sortDescending)
-    });
-    sortBtn.innerText = sortDescending ? "👇🏻🧑🏻" : "👇🏻👶🏻";
+    // Video Count Extra Element
+    if (!isAndroid) {
+        document.getElementById("vidCount").innerText = `${videos.length} Videos`
+    } else {
+        document.getElementById("vidCount").remove();
+    }
 
-    vidCountElement.innerText = `${videos.length} videos`
+    // Filter DropDown
+    const showDropDownBtn = document.querySelector('#showFilterDropDownButton');
+    const filterDropDownOptions = document.querySelector('#filterDropDownOptions');
+
+    showDropDownBtn.textContent = isAndroid ? showDropDownBtn.textContent.split(' ').splice(0, 1) : showDropDownBtn.textContent;
+    showDropDownBtn.addEventListener('click', () => {
+        filterDropDownOptions.classList.toggle('show');
+    });
+
+    document.querySelectorAll('#filterDropDownOptions .option').forEach(elem => {
+        if (sortingState[String(elem.dataset.sortOrder)]) elem.classList.add('selected');
+        elem.textContent = isAndroid ? elem.textContent.split(' ').splice(0, 1) : elem.textContent;
+        elem.addEventListener('click', (e) => {
+            document.querySelectorAll('#filterDropDownOptions .option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            e.target.classList.add('selected');
+
+            const orderBy = String(e.target.dataset.sortOrder);
+
+            setSortOrder(orderBy);
+            renderVideos();
+        });
+    });
 });

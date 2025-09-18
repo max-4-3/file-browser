@@ -46,6 +46,7 @@ export const MainModule = (() => {
         const thumbnailContainer = document.createElement("div");
         thumbnailContainer.className = "thumbnail-box";
         thumbnailContainer.innerHTML = `
+        <img id="vidThumbnail" src="/api/thumbnail?video_id=${video.id}" loading="lazy" alt="${video.title}">
         <div class="overlays">
         <div id="addFavBtn" class="overlay-item ${isFav ? 'active' : ''}">
         ${isFav ? '🩷' : '🤍'}
@@ -55,7 +56,6 @@ export const MainModule = (() => {
         🗑️
         </div>
         </div>
-        <img id="vidThumbnail" src="/api/thumbnail?video_id=${video.id}" loading="lazy" alt="${video.title}">
         <div class="duration-badge">${video.duration}</div>
         `;
         const favBtn = thumbnailContainer.querySelector("#addFavBtn");
@@ -104,11 +104,6 @@ export const MainModule = (() => {
     function renderVideos({
         videos,
         gridId = 'videoGrid',
-        sortingFunction = (a, b) => {
-            return true
-                ? b.modified_time - a.modified_time
-                : a.modified_time - b.modified_time;
-        },
         applyFunctionOnCard = (card, videoData) => { card.dataset.video_id = videoData.id },
         favouriteBtnCallback = (favBtnElem, videoData) => { toggleFavourite(favBtnElem, videoData.id) },
         isFavouriteCallback = (videoData) => { return isFavourite(videoData.id) },
@@ -137,15 +132,7 @@ export const MainModule = (() => {
             excludeIdSet = new Set(excludeIds)
         }
         let filteredVideos = [...videos].filter(video => !excludeIdSet.has(video.id));
-
         let sortedVideos = filteredVideos;
-        if (sortingFunction) {
-            try {
-                sortedVideos = filteredVideos.sort(sortingFunction);
-            } catch (error) {
-                console.log(`Error in sorting videos: ${error}`)
-            }
-        }
 
         sortedVideos.forEach(video => {
             const videoCard = renderVideo({
@@ -236,11 +223,22 @@ export const MainModule = (() => {
     }
 })();
 
-export function sortDescending() {
-    return JSON.parse(localStorage.getItem('sortDescending') || 'true')
+export function sortingState() {
+    const defaultSortState = {
+        newerFirst: true,
+        olderFirst: false,
+        biggerFirst: false,
+        smallerFirst: false,
+    }
+    const sortingState = localStorage.getItem('sortingState')
+    if (sortingState) {
+        return JSON.parse(sortingState)
+    } else {
+        return defaultSortState
+    }
 }
 
-export function saveSortingConfig(sortDescending) {
-    localStorage.setItem('sortDescending', JSON.stringify(sortDescending))
+export function saveSortingConfig(sortingState) {
+    localStorage.setItem('sortingState', JSON.stringify(sortingState))
 }
 

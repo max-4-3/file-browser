@@ -1,34 +1,42 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Video Library</title>
 
-    <!-- Static Files -->
-    <link rel="stylesheet" href="./static/css/index.css" />
-    <script type="module" src="./static/js/main.js" defer></script>
-    <script type="module" src="./static/js/index.js" defer></script>
-  </head>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Video Library</title>
 
-  <body>
-    <div class="top-bar">
-      <h1 class="home-button" onclick="">🏠 Home</h1>
-      <div class="buttons">
-        <button class="cool-button" id="sortBtn" title="Sort Videos">
-          👇🏻👶🏻
-        </button>
-        <button class="cool-button" id="reloadBtn" title="Reload the database">
-          🔄
-          <span id="reloadText">Reload</span>
-        </button>
-        <div id="vidCount" class="cool-button" onclick="">0 Videos</div>
-      </div>
-    </div>
-    <div class="container">
-      <div class="video-grid" id="videoGrid"></div>
-    </div>
-    <div id="toast-container"></div>
-    <script id="videoCard"></script>
-    <script type="module" src="./static/js/index.js" defer></script>
-  </body>
+	<!-- Static Files -->
+	<link rel="stylesheet" href="./static/css/index.css" />
+	<script type="module" src="./static/js/main.js" defer></script>
+	<script type="module" src="./static/js/index.js" defer></script>
+</head>
+
+<body>
+	<div class="top-bar">
+		<button class="home-button" onclick="">🏠 Home</button>
+		<div class="buttons">
+			<div id="filterDropDown" class="filter-dropdown">
+				<button id="showFilterDropDownButton" class="title cool-button">↕️ Filter</button>
+				<div id="filterDropDownOptions" class="options-container">
+					<div class="option" data-sort-order="newerFirst">👶🏻 Newer</div>
+					<div class="option" data-sort-order="olderFirst">🧓🏻 Older</div>
+					<div class="option" data-sort-order="biggerFirst">✊🏻 Bigger</div>
+					<div class="option" data-sort-order="smallerFirst">🤏🏻 Smaller</div>
+				</div>
+			</div>
+			<button class="cool-button" id="reloadBtn" title="Reload the database">
+				🔄
+				<span id="reloadText">Reload</span>
+			</button>
+			<button id="vidCount" class="cool-button" onclick="">0 Videos</button>
+		</div>
+	</div>
+	<div class="container">
+		<div class="video-grid" id="videoGrid"></div>
+	</div>
+	<div id="toast-container"></div>
+	<script id="videoCard"></script>
+</body>
+
 </html>
