@@ -14,11 +14,13 @@ export const MainModule = (() => {
         if (index > -1) {
             favourites.splice(index, 1);
             element.classList.remove("active");
-            element.innerText = "🤍";
+            element.querySelector('i').className = "fa-solid fa-heart";
+			element.querySelector('i').style.color = '';
         } else {
             favourites.push(id);
             element.classList.add("active");
-            element.innerText = "🩷";
+            element.querySelector('i').className = "fa-solid fa-heart";
+			element.querySelector('i').style.color = 'var(--favourite)';
         }
         saveFavourites();
     }
@@ -49,11 +51,13 @@ export const MainModule = (() => {
         <img id="vidThumbnail" src="/api/thumbnail?video_id=${video.id}" loading="lazy" alt="${video.title}">
         <div class="overlays">
         <div id="addFavBtn" class="overlay-item ${isFav ? 'active' : ''}">
-        ${isFav ? '🩷' : '🤍'}
+			<i class="fa-solid fa-heart"></i>
         </div>
-        <a id="downloadVidBtn" class="overlay-item" href="/api/video/?video_id=${video.id}" download="${video.title}.mp4">🔽</a>
+        <a id="downloadVidBtn" class="overlay-item" href="/api/video/?video_id=${video.id}" download="${video.title}.mp4">
+			<i class="fa-solid fa-download"></i>
+		</a>
         <div id="deleteVidBtn" class="overlay-item">
-        🗑️
+			<i class="fa-solid fa-trash"></i>
         </div>
         </div>
         <div class="duration-badge">${video.duration}</div>
@@ -80,11 +84,11 @@ export const MainModule = (() => {
 
 		const sizeChip = document.createElement("div");
 		sizeChip.className = "video-size chip";
-		sizeChip.innerHTML = `<p class="icon">💾</p><p class="content">${(parseInt(video.filesize) / (1024 ** 2)).toFixed(2)}MB</p>`
+		sizeChip.innerHTML = `<p class="icon"><i class="fa-solid fa-database"></i></p><p class="content">${(parseInt(video.filesize) / (1024 ** 2)).toFixed(2)}MB</p>`
 
 		const timeDiffChip = document.createElement("div");
 		timeDiffChip.className = "time-diff chip"
-		timeDiffChip.innerHTML = `<p class="icon">🕧️</p><p class="content">${getRelativeTime(video.modified_time)}</p>`
+		timeDiffChip.innerHTML = `<p class="icon"><i class="fa-solid fa-clock"></i></p><p class="content">${getRelativeTime(video.modified_time)}</p>`
 
 		const chipContainer = document.createElement("div");
 		chipContainer.className = "chips-container";

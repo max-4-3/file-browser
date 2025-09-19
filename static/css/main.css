@@ -462,11 +462,15 @@ a {
     box-shadow: var(--shadow-md);
     overflow: hidden;
     transition: .3s all;
+	left: -100%;
+	user-select: none;
+	pointer-events: none;
 }
 
 .options-container.show {
     transform: translateX(0);
     opacity: 1;
+	pointer-events: initial;
 }
 
 .option {

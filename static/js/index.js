@@ -106,30 +106,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderVideos();
 
     // Home Button
-    if (isAndroid) {
+    if (0) {
         const homeButton = document.querySelector('.home-button');
         homeButton.textContent = homeButton.textContent.split(' ').splice(0, 1);
     }
 
     // Video Count Extra Element
     if (!isAndroid) {
-        document.getElementById("vidCount").innerText = `${videos.length} Videos`
+        document.getElementById("vidCount").textContent = `${videos.length}`
     } else {
         document.getElementById("vidCount").remove();
     }
 
     // Reload Button Element
     document.getElementById("reloadBtn").addEventListener("click", async (e) => {
-        const textSpan = document.getElementById("reloadText");
-
-        const ogTxt = textSpan.textContent;
-
-        textSpan.textContent = "Reloading...";
-        const spinner = document.createElement("span");
-        spinner.className = "spinner";
-        textSpan.after(spinner);
 
         try {
+			// Add spin class to icon
+			e.target.querySelector('i').classList.add('fa-spin')
             const response = await fetch("/reload" + (e.shiftKey ? "?hard=true" : ""), { method: "POST" });
             if (response.ok) {
                 MainModule.showToast('Reloading page...', 'primary');
@@ -142,8 +136,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             MainModule.showToast('Failed to send reload request!', 'danger');
             console.error("Fetch failed:", err);
         } finally {
-            spinner.remove();
-            textSpan.textContent = ogTxt;
+			// Remove spin class from icon
+			e.target.querySelector('i').classList.remove('fa-spin')
         }
     });
 
@@ -151,14 +145,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const showDropDownBtn = document.querySelector('#showFilterDropDownButton');
     const filterDropDownOptions = document.querySelector('#filterDropDownOptions');
 
-    showDropDownBtn.textContent = isAndroid ? showDropDownBtn.textContent.split(' ').splice(0, 1) : showDropDownBtn.textContent;
     showDropDownBtn.addEventListener('click', () => {
         filterDropDownOptions.classList.toggle('show');
     });
 
     document.querySelectorAll('#filterDropDownOptions .option').forEach(elem => {
         if (sortingState[String(elem.dataset.sortOrder)]) elem.classList.add('selected');
-        elem.textContent = isAndroid ? elem.textContent.split(' ').splice(0, 1) : elem.textContent;
         elem.addEventListener('click', (e) => {
             document.querySelectorAll('#filterDropDownOptions .option').forEach(opt => {
                 opt.classList.remove('selected');
