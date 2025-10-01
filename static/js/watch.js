@@ -12,6 +12,7 @@ const errorMessage = document.getElementById("errorMessage");
 const retryButton = document.getElementById("retryButton");
 const refreshButton = document.getElementById("refreshVideos");
 const downloadBtn = document.getElementById("downloadBtn");
+const playerType = document.getElementById("playerType");
 
 // --- Global/Module Variables (declared at top level) ---
 let videoId = new URLSearchParams(window.location.search).get("id");
@@ -25,6 +26,7 @@ let player; // Holds the Plyr instance
 let plyrTimeoutId; // Stores the ID for the Plyr initialization timeout
 let playerInitialized = false; // Flag to indicate if *any* player (Plyr or native) is active
 let currentVideoData = null;
+let useNative = String(localStorage.getItem("playerType")).toLowerCase() === "native";
 
 // --- Utils Module (Global Scope) ---
 const UtilsModule = (() => {
@@ -221,6 +223,7 @@ const PlayerModule = (() => {
 		}, 3000);
 
 		try {
+			if (useNative) throw new Error("Native Player Requested!");
 			player = new Plyr("#player", {
 				autoplay: false,
 				seekTime: 10,
@@ -462,6 +465,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 	setVideoInfoAndPageTitle();
 	videos = await fetchVideos();
 	renderVideos();
+
+	// Change Player Type Button
+	playerType.textContent = useNative ? "Modern" : "Native";
+	playerType.dataset.playerType = useNative ? "modern" : "native";
+	playerType.addEventListener("click", () => {
+		useNative = playerType.dataset.playerType.toLowerCase() === "native";
+		playerType.textContent = useNative ? "Modern" : "Native";
+		playerType.dataset.playerType = useNative ? "modern" : "native";
+		localStorage.setItem("playerType", useNative ? "native" : "modern");
+		PlayerModule.initialize();
+		setVideoInfoAndPageTitle();
+	});
 
 	// Retry Button
 	retryButton.addEventListener("click", PlayerModule.initialize);

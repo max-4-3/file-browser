@@ -120,10 +120,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Reload Button Element
     document.getElementById("reloadBtn").addEventListener("click", async (e) => {
+		const iElem = document.querySelector('#reloadBtn').querySelector('i')
 
         try {
 			// Add spin class to icon
-			e.target.querySelector('i').classList.add('fa-spin')
+			iElem.classList.add('fa-spin')
             const response = await fetch("/reload" + (e.shiftKey ? "?hard=true" : ""), { method: "POST" });
             if (response.ok) {
                 MainModule.showToast('Reloading page...', 'primary');
@@ -137,7 +138,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.error("Fetch failed:", err);
         } finally {
 			// Remove spin class from icon
-			e.target.querySelector('i').classList.remove('fa-spin')
+			iElem.classList.remove('fa-spin')
         }
     });
 

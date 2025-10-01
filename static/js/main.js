@@ -245,4 +245,3 @@ export function sortingState() {
 export function saveSortingConfig(sortingState) {
     localStorage.setItem('sortingState', JSON.stringify(sortingState))
 }
-
