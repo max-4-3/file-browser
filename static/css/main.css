@@ -130,6 +130,10 @@ upper {
     margin-bottom: var(--space-md);
 }
 
+.video-grid.empty {
+	display: none
+}
+
 /* Default Refresh & Sort Button Style */
 .cool-button {
     color: var(--light);

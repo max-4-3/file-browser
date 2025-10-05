@@ -1,5 +1,32 @@
 @import url("./main.css");
 
+
+#searchVideos {
+	display: flex;
+	width: 90%;
+	gap: var(--space-md);
+	background: var(--dark-gray);
+	padding: var(--space-sm);
+	border-radius: var(--radius-sm);
+	box-shadow: var(--shadow-md);
+	margin-bottom: var(--space-md);
+}
+
+#search-input {
+	background: var(--dark-gray);
+	color: var(--light);
+	border: none;
+	outline: none;
+}
+
+#search-input:focus {
+	border: none;
+}
+
+#searchVideos button {
+	color: var(--light);
+}
+
 .video-container {
     position: relative;
     width: 100%;

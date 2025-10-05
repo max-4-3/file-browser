@@ -20,6 +20,9 @@
         <i class="fa-solid fa-house"></i>
       </button>
       <div class="buttons">
+		<button class="cool-button" id="search-button" onclick="document.querySelector('#searchVideos').style.display = document.querySelector('#searchVideos').style.display === 'none' ? 'flex' : 'none'">
+		<i class="fa-solid fa-search"></i>
+		</button>
 		<button id="playerType" class="cool-button">Native</button>
         <div id="filterDropDown" class="filter-dropdown">
           <button id="showFilterDropDownButton" class="title cool-button">
@@ -96,7 +99,16 @@
             >
           </div>
         </div>
-
+			<div class="search-bar" id="searchVideos" style="display: none;">
+				<label for="search-input" style="flex-shrink: 0;" >
+					<i class="fa-solid fa-search"></i>
+				</label>
+				<input id="search-input" style="flex-grow: 1;" type="search">
+				<button type="reset" style="flex-shrink: 0;">
+					<i class="fa-solid fa-close"></i>
+				</button>
+			</div>
+		<div class="video-grid empty" id="searchResults"></div>
         <div class="video-grid" id="videoGrid">
           <!-- Videos will be inserted here by JavaScript -->
           <div class="grid-placeholder">
