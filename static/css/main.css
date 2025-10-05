@@ -10,9 +10,9 @@
     --dark-gray: #343a40;
     --danger: #ef233c;
     --danger-hover: #d90429;
-    --success: #4cc9f0;
+    --success: #48e933;
     --favourite: #FC77A8;
-    --warning: #ffe656;
+    --warning: #ffa256;
 
     /* Spacing */
     --space-xs: 0.25rem;
@@ -95,8 +95,35 @@ a {
     text-decoration: none;
 }
 
+/* Styles for Stats Bottom */
+#statsBottom {
+    width: 100%;
+    background: var(--dark-gray);
+    color: var(--light);
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--text-base);
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+}
+
+bold {
+    font-weight: bold;
+    font-size: var(--text-md);
+}
+
+italic {
+    font-style: italic;
+}
+
+upper {
+    font-size: var(--text-sm);
+    vertical-align: super;
+}
+
 /* Default Cards Grid Style */
 .video-grid {
+	width: 100%;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
     gap: var(--space-md);
@@ -134,6 +161,41 @@ a {
     transition: .3s;
     position: relative;
     height: fit-content;
+}
+
+.card.deleted {
+    cursor: not-allowed;
+    opacity: 0.6;
+    pointer-events: none;
+    filter: grayscale(1);
+}
+
+.card.deleted .thumbnail-box::before {
+    content: 'Deleted';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: var(--light);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    font-size: var(--text-lg);
+    font-weight: bold;
+    z-index: 10;
+    animation: flyUp 0.5s ease forwards;
+}
+
+@keyframes flyUp {
+    from {
+        transform: translate(-50%, 200%) scale(0);
+        opacity: 0;
+    }
+
+    to {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
 }
 
 .card:hover > .thumbnail-box {

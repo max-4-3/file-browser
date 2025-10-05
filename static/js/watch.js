@@ -2,6 +2,7 @@ import {
 	MainModule,
 	saveSortingConfig,
 	sortingState as getSortingState,
+	showStatsBottom,
 } from "./main.js";
 
 // --- Global DOM Element References (declared at top level) ---
@@ -13,6 +14,7 @@ const retryButton = document.getElementById("retryButton");
 const refreshButton = document.getElementById("refreshVideos");
 const downloadBtn = document.getElementById("downloadBtn");
 const playerType = document.getElementById("playerType");
+const videoGrid = document.getElementById("videoGrid");
 
 // --- Global/Module Variables (declared at top level) ---
 let videoId = new URLSearchParams(window.location.search).get("id");
@@ -22,6 +24,9 @@ let isAndroid = (function () {
 	const userAgent = navigator.userAgent || navigator.vendor || window.opera;
 	return /android/i.test(userAgent);
 })();
+let prevBatch = [];
+const batchSize = 10;
+const renderVideoObserver = new IntersectionObserver(renderNextBatch)
 let player; // Holds the Plyr instance
 let plyrTimeoutId; // Stores the ID for the Plyr initialization timeout
 let playerInitialized = false; // Flag to indicate if *any* player (Plyr or native) is active
@@ -123,7 +128,7 @@ const PlayerModule = (() => {
 			<p class="icon"><i class="fa-solid fa-clock"></i></p>
         <p class="content">${videoModifiedTime.toLocaleString()} (${MainModule.getRelativeTime(videoModifiedTime.getTime() / 1000)})</p>
         </div>
-        `;
+		`;
 		// Add Copy Event to all Chips!
 		[...chipsContainer.children].forEach((elem) => {
 			elem.addEventListener("click", copyVidInfo);
@@ -185,7 +190,33 @@ const PlayerModule = (() => {
 			{ once: true },
 		);
 
-		chipsContainer.append(copyButton, deleteVideoButton);
+		const shareVideoButton = document.createElement("div");
+		shareVideoButton.className = "cool-button";
+		shareVideoButton.innerHTML = `<i class="fa-solid fa-share-from-square"></i>`;
+		
+		shareVideoButton.addEventListener("click",async () => {
+			if (navigator.share) {
+				try {
+					const sharableUrl = (new URL(window.location)).origin.toString() + "?video_id=" + videoId;
+					await navigator.share({
+						title: document.title,
+						text: "Open Native",
+						url: sharableUrl
+					})
+					shareVideoButton.style.background = "var(--success)";
+				} catch (e) {
+					shareVideoButton.style.background = "var(--warning)"
+				} finally {
+					setTimeout(()=> {
+						shareVideoButton.style.background = "";
+					}, 1000);
+				}
+			} else {
+				MainModule.showToast("Unable to share!", "warning");
+			}
+		})
+
+		chipsContainer.append(copyButton, shareVideoButton, deleteVideoButton);
 		videoInfoContainer.appendChild(videoTitleContainer);
 		videoInfoContainer.appendChild(chipsContainer);
 	}
@@ -347,7 +378,7 @@ function deleteVideo(videoData, cardElement) {
 
 				if (index !== -1) {
 					videos.splice(index, 1);
-					cardElement.remove();
+					cardElement.classList.add('deleted');
 					MainModule.showToast("Video Removed!", "success");
 				}
 			}
@@ -395,11 +426,74 @@ function prepareVideos() {
 }
 
 function renderVideos() {
-	const sortedVideos = prepareVideos();
-	MainModule.renderVideos({
-		videos: sortedVideos,
-		excludeIds: [videoId],
-		applyFunctionOnCard: (vidCard, vidData) => {
+	// Reset
+	renderVideoObserver.disconnect();
+	videoGrid.innerHTML = '';
+	prevBatch = [];
+
+	// Re-init
+	videos = prepareVideos();
+	
+	// Rendering first batch
+	const newBatch = [...videos].splice(prevBatch.length, batchSize)
+
+	// Create new cards
+	const videoCards = newBatch.map(videoData => MainModule.renderVideo({
+		video: videoData,
+		deleteBtnCallback: deleteVideo,
+	}));
+
+	// Append newly created video card to grid or apply any function to card ( e.g. middle click handler )
+	videoCards.forEach((vidCard, index) => {
+		const vidData = newBatch[index]
+		if (vidData.id === videoId) return
+
+		vidCard.querySelector("img").addEventListener("click", async () => {
+			const newVideoId = vidData.id;
+			if (newVideoId && newVideoId !== videoId) {
+				videoId = newVideoId; // Update the global videoId
+
+				// Update the URL in the browser's history without reloading the page
+				const newUrl = new URL(window.location.href);
+				newUrl.searchParams.set("id", videoId);
+				window.history.pushState({ path: newUrl.href }, "", newUrl.href);
+
+				PlayerModule.initialize(); // Re-initialize the player with the new video ID
+				renderVideos();
+				setVideoInfoAndPageTitle();
+			}
+		});
+		vidCard.addEventListener("mousedown", (e) => {
+			if (e.button === 1) {
+				// 0,1,2 = left, middle, right
+				e.preventDefault();
+				window.open(`/watch?id=${vidData.id}`);
+			}
+		});
+		videoGrid.appendChild(vidCard)
+	})
+
+	// First
+	prevBatch.push(...newBatch);
+	renderVideoObserver.observe(videoGrid.lastChild);
+}
+
+function renderNextBatch(observerEntries) {
+	observerEntries.forEach(entry => {
+		if (!entry.isIntersecting) return
+
+		renderVideoObserver.unobserve(entry.target)
+		const nextBatch = [...videos].splice(prevBatch.length, batchSize)
+
+		// Create new cards
+		const videoCards = nextBatch.map(videoData => MainModule.renderVideo({
+			video: videoData,
+			deleteBtnCallback: deleteVideo,
+		}));
+
+		// Append newly created video card to grid or apply any function to card ( e.g. middle click handler )
+		videoCards.forEach((vidCard, index) => {
+			const vidData = nextBatch[index]
 			vidCard.querySelector("img").addEventListener("click", async () => {
 				const newVideoId = vidData.id;
 				if (newVideoId && newVideoId !== videoId) {
@@ -422,10 +516,13 @@ function renderVideos() {
 					window.open(`/watch?id=${vidData.id}`);
 				}
 			});
-		},
-		thumbnailCallback: () => { },
-		deleteBtnCallback: deleteVideo,
-	});
+			videoGrid.appendChild(vidCard)
+		})
+
+		// Update for next batch rendering
+		prevBatch.push(...nextBatch)
+		renderVideoObserver.observe(videoGrid.lastChild)  // Observer the last element
+	})
 }
 
 function setSortOrder(order) {
@@ -524,4 +621,5 @@ document.addEventListener("DOMContentLoaded", async () => {
 				renderVideos();
 			});
 		});
+	showStatsBottom(videos);
 });

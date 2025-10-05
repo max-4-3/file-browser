@@ -170,7 +170,9 @@ async def reload_data(session: Session, hard_reload: bool = False):
                         f"[red bold]File Removed: {
                             data_old.video.title} [!Exist][/bold red]"
                     )
-                    session.delete(data_old)
+                    session.delete(data_old)    # Delete from "VideoServer" db
+                    video_db_entry = session.exec(select(Video).where(Video.id == data_old.video_id)).all()
+                    if video_db_entry: session.delete(video_db_entry)
                     continue
 
                 filename_exists.append(data_old.video.title)

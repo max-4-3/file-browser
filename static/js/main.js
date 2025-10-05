@@ -73,7 +73,7 @@ export const MainModule = (() => {
         const delBtn = thumbnailContainer.querySelector("#deleteVidBtn")
         if (delBtn instanceof Element) {
             delBtn.addEventListener("click", e => {deleteBtnCallback(video, card)})
-        }
+        } else { console.error("Unable to attach delete callback to button!\n" + `Type of delBtn = ${typeof Element}`) }
 
 		const videoInfoContaier = document.createElement("div");
 		videoInfoContaier.className = "video-info";
@@ -112,6 +112,7 @@ export const MainModule = (() => {
         favouriteBtnCallback = (favBtnElem, videoData) => { toggleFavourite(favBtnElem, videoData.id) },
         isFavouriteCallback = (videoData) => { return isFavourite(videoData.id) },
         thumbnailCallback = (videoData) => { window.open(`watch?id=${videoData.id}`) },
+		deleteBtnCallback = (video, cardElement) => { console.log('Video Deleted: ' + video.id); cardElement.remove() },
         excludeIds = null
     }) {
 
@@ -144,6 +145,7 @@ export const MainModule = (() => {
                 favouriteBtnCallback: favouriteBtnCallback,
                 isFavouriteCallback: isFavouriteCallback,
                 thumbnailCallback: thumbnailCallback,
+				deleteBtnCallback: deleteBtnCallback,
             });
             if (videoCard && videoCard instanceof Element) {
                 try {
@@ -221,6 +223,7 @@ export const MainModule = (() => {
 	}
 
     return {
+		renderVideo: renderVideo,
         renderVideos: renderVideos,
         showToast: showToast,
 		getRelativeTime: getRelativeTime,
@@ -244,4 +247,29 @@ export function sortingState() {
 
 export function saveSortingConfig(sortingState) {
     localStorage.setItem('sortingState', JSON.stringify(sortingState))
+}
+
+export function showStatsBottom(videos) {
+    let statsBottom = document.getElementById("statsBottom");
+
+    if (!statsBottom) {
+        statsBottom = document.createElement("div");
+        statsBottom.id = "statsBottom";
+        document.body.appendChild(statsBottom);
+    }
+
+    const totalVideos = videos.length;
+    const totalSizeInBytes = videos.reduce((acc, video) => acc + Number(video.filesize || 0), 0);
+    const totalSizeMB = (totalSizeInBytes / 1024 ** 2).toFixed(2);
+    const totalSizeGB = (totalSizeInBytes / 1024 ** 3).toFixed(2);
+
+    const favourites = JSON.parse(localStorage.getItem("favourites") || "[]");
+    const totalFavourites = favourites.length;
+
+    statsBottom.innerHTML = `
+        <span>Total Videos: <strong>${totalVideos}</strong></span>
+        <span>Total Size: <strong>${totalSizeMB}</strong> <span style="text-transform: uppercase;">MB</span> 
+        (<strong>${totalSizeGB}</strong> <span style="text-transform: uppercase;">GB</span>)</span>
+        <span>Total Favourites: <strong>${totalFavourites}</strong></span>
+    `;
 }
