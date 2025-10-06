@@ -273,3 +273,90 @@ export function showStatsBottom(videos) {
         <span>Total Favourites: <strong>${totalFavourites}</strong></span>
     `;
 }
+
+let timeout;
+window.addEventListener("resize", () => {
+	clearTimeout(timeout);
+	timeout = setTimeout(() => {
+		if (window.innerWidth < 400) {
+			document.querySelectorAll('.video-grid').forEach(elem => elem.style.setProperty('--card-size', Math.max(100, window.innerWidth) + 'px'))
+		} else {
+			document.querySelectorAll('.video-grid').forEach(elem => elem.style.setProperty('--card-size', 400 + 'px'))
+		}
+	}, 200);
+})
+
+export function getUserName() {
+	return localStorage.getItem("login");
+}
+
+export function setUserName(userName) {
+	userName ? localStorage.setItem("login", userName) : {};
+}
+
+export function loginUser() {
+	const userLoginModal = document.createElement("div");
+	userLoginModal.classList.add("modal");
+	
+	const userLoginModalContent = document.createElement("div");
+	userLoginModalContent.classList.add("modal-content");
+
+	const userLoginForm = document.createElement("form");
+	const userNameInput = document.createElement("input");
+	const userNameSubmitButton = document.createElement("button");
+
+	userLoginModalContent.textContent = localStorage.getItem("login") ? `Welcome, ${localStorage.getItem('login')}!` : "";
+	userNameInput.placeholder = "New Username";
+	userNameInput.type = "text";
+	userNameSubmitButton.type = "submit";
+	userNameSubmitButton.classList.add("cool-button");
+	userNameSubmitButton.disabled = true;
+	userLoginForm.classList.add("user-login-form");
+
+	userNameSubmitButton.innerHTML = "<i class='fa-solid fa-check'></i>"
+
+	function closeModal(postFn = () => {}) {
+		document.body.classList.remove("modal-shown");
+
+		userLoginModal.remove();
+		
+		// Call post fn
+		postFn?.();
+	}
+
+	function closeModal1(e) {
+		if (e.target === userLoginModal) {
+			window.removeEventListener("click", closeModal1);
+			closeModal();
+		}
+	}
+
+	userLoginForm.addEventListener("submit", e => {
+		e.preventDefault();
+		let prevUserName = getUserName();
+		let newUserName = userNameInput.value.trim();
+
+		if (!newUserName || newUserName === prevUserName) { // Handle error 
+			MainModule.showToast("Invalid or Already Existing!", "danger")
+			return;
+		}
+
+		console.log(prevUserName, "changed to", newUserName);
+		setUserName(newUserName);
+		MainModule.showToast("Success!");
+		setTimeout(() => closeModal(() => window.location.reload()), 500);
+	})
+
+	userNameInput.addEventListener("input", () => {
+		userNameSubmitButton.disabled = userNameInput.value.trim() ? false : true
+	})
+
+	userLoginModal.appendChild(userLoginModalContent);
+	userLoginModalContent.appendChild(userLoginForm);
+	userLoginForm.append(userNameInput, userNameSubmitButton);
+	document.body.appendChild(userLoginModal);
+	document.body.classList.add("modal-shown");
+
+	window.addEventListener("click", closeModal1)
+}
+

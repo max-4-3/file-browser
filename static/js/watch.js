@@ -3,6 +3,9 @@ import {
 	saveSortingConfig,
 	sortingState as getSortingState,
 	showStatsBottom,
+	setUserName,
+	getUserName,
+	loginUser
 } from "./main.js";
 
 // --- Global DOM Element References (declared at top level) ---
@@ -364,7 +367,7 @@ function deleteVideo(videoData, cardElement) {
 	fetch("/api/video?video_id=" + videoData.id, {
 		method: "DELETE",
 		headers: {
-			user: "maxim",
+			user: getUserName(),
 		},
 	})
 		.then((response) => {
@@ -381,6 +384,8 @@ function deleteVideo(videoData, cardElement) {
 					cardElement.classList.add('deleted');
 					MainModule.showToast("Video Removed!", "success");
 				}
+			} else if (response.status === 401) {
+				MainModule.showToast("Unauthorized!", "danger");
 			}
 		})
 		.catch((e) => {
@@ -663,4 +668,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 			videoGrid.style.display = "none";
 		}
 	});
+
+
+	// User
+	document.querySelector("#userBtn")?.addEventListener("click", loginUser)
 });

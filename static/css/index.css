@@ -38,8 +38,81 @@
 	color: var(--light);
 }
 
+.modal {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	background: rgba(0, 0, 0, 0.4);
+	z-index: 1000;
+}
+
+.modal-shown {
+	overflow: hidden;
+}
+
+.modal-content {
+	background: white;
+	padding: 2rem;
+	border-radius: 1rem;
+	text-align: center;
+	color: var(--darker);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-lg);
+	font-size: var(--text-lg);
+	font-weight: bold;
+}
+
+.modal {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	background: rgba(0, 0, 0, 0.4);
+	z-index: 1000;
+}
+
+.modal-shown {
+	overflow: hidden;
+}
+
+.modal-content {
+	background: var(--light);
+	padding: var(--space-lg);
+	border-radius: var(--radius-sm);
+	animation: flyInLeft .3s  ease-in-out forwards;
+	animation-iteration-count: 1;
+}
+
+.modal-content form {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+.user-login-form input {
+	border: none;
+	padding: var(--space-xs);
+}
+
+@keyframes flyInLeft {
+	from {
+		transform: translateX(-100px);
+		opacity: 0;
+	}
+
+	to {
+		transform: translateX(0);
+		opacity: 1;
+	}
+}
+
 @keyframes spin {
 	to {
 		transform: rotate(360deg);
 	}
 }
+

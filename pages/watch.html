@@ -1,129 +1,117 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Video Player</title>
 
-    <!-- Stylesheet (CSS) -->
-    <link rel="stylesheet" href="./static/icons/css/solid.min.css" />
-    <link rel="stylesheet" href="./static/icons/css/fontawesome.min.css" />
-    <link rel="stylesheet" href="./static/css/main.css" />
-    <link rel="stylesheet" href="./static/css/plyr.css" />
-    <link rel="stylesheet" href="./static/css/watch.css" />
-  </head>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Video Player</title>
 
-  <body>
-    <div id="toast-container"></div>
-    <div class="top-bar">
-      <button class="home-button" onclick="window.location.href='/'">
-        <i class="fa-solid fa-house"></i>
-      </button>
-      <div class="buttons">
-		<button class="cool-button" id="search-button" onclick="document.querySelector('#searchVideos').style.display = document.querySelector('#searchVideos').style.display === 'none' ? 'flex' : 'none'">
-		<i class="fa-solid fa-search"></i>
+	<!-- Stylesheet (CSS) -->
+	<link rel="stylesheet" href="./static/icons/css/solid.min.css" />
+	<link rel="stylesheet" href="./static/icons/css/fontawesome.min.css" />
+	<link rel="stylesheet" href="./static/css/main.css" />
+	<link rel="stylesheet" href="./static/css/plyr.css" />
+	<link rel="stylesheet" href="./static/css/watch.css" />
+</head>
+
+<body>
+	<div id="toast-container"></div>
+	<div class="top-bar">
+		<button class="home-button" onclick="window.location.href='/'">
+			<i class="fa-solid fa-house"></i>
 		</button>
-		<button id="playerType" class="cool-button">Native</button>
-        <div id="filterDropDown" class="filter-dropdown">
-          <button id="showFilterDropDownButton" class="title cool-button">
-            <i class="fa-solid fa-filter"></i>
-          </button>
-          <div id="filterDropDownOptions" class="options-container">
-            <div class="option" data-sort-order="newerFirst">
-				Newer
-            </div>
-            <div class="option" data-sort-order="olderFirst">
-				Older
-            </div>
-            <div class="option" data-sort-order="biggerFirst">
-				Bigger
-            </div>
-            <div class="option" data-sort-order="smallerFirst">
-				Smaller
-            </div>
-          </div>
-        </div>
-        <button id="vidCount" class="cool-button" onclick="">0</button>
-      </div>
-    </div>
+		<div class="buttons">
+			<button id="playerType" class="cool-button">Native</button>
+			<div id="filterDropDown" class="filter-dropdown">
+				<button id="showFilterDropDownButton" class="title cool-button">
+					<i class="fa-solid fa-filter"></i>
+				</button>
+				<div id="filterDropDownOptions" class="options-container">
+					<div class="option" data-sort-order="newerFirst">Newer</div>
+					<div class="option" data-sort-order="olderFirst">Older</div>
+					<div class="option" data-sort-order="biggerFirst">Bigger</div>
+					<div class="option" data-sort-order="smallerFirst">Smaller</div>
+				</div>
+			</div>
+			<button class="cool-button" id="userBtn" title="User">
+				<i class="fa-solid fa-user"></i>
+			</button>
+			<button id="vidCount" class="cool-button" onclick="">0</button>
+		</div>
+	</div>
 
-    <div class="container">
-      <div class="video-container">
-        <div id="loadingState" class="video-loading" style="display: none">
-          <div class="loading-spinner"></div>
-          <p>Loading video...</p>
-        </div>
+	<div class="container">
+		<div class="video-container">
+			<div id="loadingState" class="video-loading" style="display: none">
+				<div class="loading-spinner"></div>
+				<p>Loading video...</p>
+			</div>
 
-        <div id="errorState" class="video-error" style="display: none">
-          <div class="video-error-icon">
-            <i class="fas fa-exclamation-triangle"></i>
-          </div>
-          <h3>Failed to load video</h3>
-          <p id="errorMessage">An unknown error occurred</p>
-          <button id="retryButton" class="retry-button">Retry</button>
-        </div>
+			<div id="errorState" class="video-error" style="display: none">
+				<div class="video-error-icon">
+					<i class="fas fa-exclamation-triangle"></i>
+				</div>
+				<h3>Failed to load video</h3>
+				<p id="errorMessage">An unknown error occurred</p>
+				<button id="retryButton" class="retry-button">Retry</button>
+			</div>
 
-        <video
-          id="player"
-          playsinline="playsinline"
-          controls="controls"
-          style="display: none"
-        >
-          <!-- Source will be added by JavaScript -->
-        </video>
+			<video id="player" playsinline="playsinline" controls="controls" style="display: none">
+				<!-- Source will be added by JavaScript -->
+			</video>
 
-        <div class="video-info current">
-          <p class="current title"></p>
-          <div class="chips-container current">
-            <div class="chip">
-              <p class="content"></p>
-              <div class="icon"></div>
-            </div>
-          </div>
-        </div>
-      </div>
+			<div class="video-info current">
+				<p class="current title"></p>
+				<div class="chips-container current">
+					<div class="chip">
+						<p class="content"></p>
+						<div class="icon"></div>
+					</div>
+				</div>
+			</div>
+		</div>
 
-      <div class="video-library" style="width: 100%;">
-        <div class="library-header">
-          <h2 class="library-title">More Videos</h2>
-          <div class="library-actions">
-            <button
-              class="cool-button"
-              id="refreshVideos"
-              title="Refresh videos"
-            >
-              <i class="fa-solid fa-rotate-right"></i>
-            </button>
-            <a id="downloadBtn" class="cool-button" title="Download Button"
-              ><i class="fa-solid fa-download"></i></a
-            >
-          </div>
-        </div>
-			<div class="search-bar" id="searchVideos" style="display: none;">
-				<label for="search-input" style="flex-shrink: 0;" >
+		<div class="video-library" style="width: 100%">
+			<div class="library-header">
+				<h2 class="library-title">More Videos</h2>
+				<div class="library-actions">
+					<button class="cool-button" id="search-button"
+						onclick="document.querySelector('#searchVideos').style.display = document.querySelector('#searchVideos').style.display === 'none' ? 'flex' : 'none'">
+						<i class="fa-solid fa-search"></i>
+					</button>
+					<button class="cool-button" id="refreshVideos" title="Refresh videos">
+						<i class="fa-solid fa-rotate-right"></i>
+					</button>
+					<a id="downloadBtn" class="cool-button" title="Download Button"><i
+							class="fa-solid fa-download"></i></a>
+				</div>
+			</div>
+			<div class="search-bar" id="searchVideos" style="display: none">
+				<label for="search-input" style="flex-shrink: 0">
 					<i class="fa-solid fa-search"></i>
 				</label>
-				<input id="search-input" style="flex-grow: 1;" type="search">
-				<button type="reset" style="flex-shrink: 0;">
+				<input id="search-input" style="flex-grow: 1" type="search" />
+				<button type="reset" style="flex-shrink: 0">
 					<i class="fa-solid fa-close"></i>
 				</button>
 			</div>
-		<div class="video-grid empty" id="searchResults"></div>
-        <div class="video-grid" id="videoGrid">
-          <!-- Videos will be inserted here by JavaScript -->
-          <div class="grid-placeholder">
-            <div class="placeholder-card"></div>
-            <div class="placeholder-card"></div>
-            <div class="placeholder-card"></div>
-            <div class="placeholder-card"></div>
-          </div>
-        </div>
-      </div>
-    </div>
+			<div class="video-grid empty" id="searchResults"></div>
+			<div class="video-grid" id="videoGrid">
+				<!-- Videos will be inserted here by JavaScript -->
+				<div class="grid-placeholder">
+					<div class="placeholder-card"></div>
+					<div class="placeholder-card"></div>
+					<div class="placeholder-card"></div>
+					<div class="placeholder-card"></div>
+				</div>
+			</div>
+		</div>
+	</div>
 
-    <!-- Scipts -->
-    <script src="./static/js/plyr.js" defer></script>
-    <script type="module" src="./static/js/main.js" defer></script>
-    <script type="module" src="./static/js/watch.js" defer></script>
-  </body>
+	<!-- Scipts -->
+	<script src="./static/js/plyr.js" defer></script>
+	<script type="module" src="./static/js/main.js" defer></script>
+	<script type="module" src="./static/js/watch.js" defer></script>
+</body>
+
 </html>

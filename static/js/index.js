@@ -3,6 +3,9 @@ import {
 	saveSortingConfig,
 	sortingState as getSortingState,
 	showStatsBottom,
+	getUserName,
+	setUserName,
+	loginUser,
 } from "./main.js";
 
 let sortingState = getSortingState();
@@ -34,7 +37,7 @@ function deleteVideo(videoData, cardElement) {
 	fetch("/api/video?video_id=" + videoData.id, {
 		method: "DELETE",
 		headers: {
-			user: "maxim",
+			user: getUserName(),
 		},
 	})
 		.then((response) => {
@@ -46,8 +49,8 @@ function deleteVideo(videoData, cardElement) {
 					cardElement.classList.add("deleted");
 					MainModule.showToast("Video Removed!", "success");
 				}
-			} else {
-				MainModule.showToast("Failed to remove video!", "danger");
+			} else if (response.status === 400) {
+				MainModule.showToast("Unauthorized!", "danger");
 			}
 		})
 		.catch((err) => {
@@ -264,4 +267,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 			videoGrid.style.display = "none";
 		}
 	});
+
+	// UserLogin
+	const userLoginButton = document.querySelector("#userBtn");
+	userLoginButton.addEventListener("click", loginUser)
 });

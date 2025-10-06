@@ -123,15 +123,22 @@ upper {
 
 /* Default Cards Grid Style */
 .video-grid {
+	--card-size: 400px;
 	width: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(var(--card-size), 1fr));
     gap: var(--space-md);
     margin-bottom: var(--space-md);
 }
 
 .video-grid.empty {
 	display: none
+}
+
+@media (max-width: 400px) {
+	.video-grid {
+		width: initial
+	}
 }
 
 /* Default Refresh & Sort Button Style */
