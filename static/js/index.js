@@ -60,7 +60,6 @@ function deleteVideo(videoData, cardElement) {
 }
 
 function prepareVideos() {
-	console.log(videos.length);
 	// Create a shallow copy of the videos array
 	let localVideos = [...videos];
 	localVideos.sort((a, b) => {
@@ -80,6 +79,11 @@ function prepareVideos() {
 			return valA - valB;
 		}
 
+		function convertDurationToInt(value) {
+			const [minutes, seconds] = String(value).split(":");
+			return minutes * 60 + seconds;
+		}
+
 		if (sortingState.biggerFirst) {
 			return differenceOfProperty("filesize", b, a);
 		} else if (sortingState.smallerFirst) {
@@ -88,6 +92,10 @@ function prepareVideos() {
 			return differenceOfProperty("modified_time", b, a);
 		} else if (sortingState.olderFirst) {
 			return differenceOfProperty("modified_time", a, b);
+		} else if (sortingState.longerFirst) {
+			return differenceOfProperty("duration", b, a, convertDurationToInt);
+		} else if (sortingState.shorterFirst) {
+			return differenceOfProperty("duration", a, b, convertDurationToInt);
 		} else {
 			return 0;
 		}
@@ -241,7 +249,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 		searchResults.innerHTML = ""; // clear any old results
 	});
 
-	searchInput.addEventListener("input", (e) => {
+	// Debounce (i.e. runs after the user stop firing enevts
+	function debounce(func, delay) {
+		let timeout;
+		return function (...args) {
+			clearTimeout(timeout);
+			timeout = setTimeout(() => func.apply(this, args), delay)
+		}
+	}
+
+	searchInput.addEventListener("input", debounce(() => {
 		const searchTerm = searchInput.value.trim();
 		searchResults.innerHTML = ""; // clear before rendering new results
 
@@ -266,7 +283,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 			searchResults.classList.add("empty");
 			videoGrid.style.display = "none";
 		}
-	});
+	}, 650));
 
 	// UserLogin
 	const userLoginButton = document.querySelector("#userBtn");

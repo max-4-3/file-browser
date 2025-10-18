@@ -10,9 +10,9 @@ from rich.progress import (
     TimeRemainingColumn  # How much time remaning
 )
 from src.utils.video_processing import generate_video_info
-from src.data_store import Session, VideoServer, Video
+from src.models import Video, VideoServer
 from src import ALLOWED_FILES, ROOT_DIRS
-from sqlmodel import select
+from sqlmodel import select, Session
 
 
 def is_subpath(child, parent):
@@ -98,7 +98,7 @@ async def make_data(session: Session):
                 session.add(video_server)
                 progress_bar.update(add_video_task, advance=1)
             except Exception as e:
-                print(f"Exception while inseting to db:", e)
+                print("Exception while inseting to db:", e)
 
         session.commit()
         return True
@@ -157,9 +157,9 @@ async def reload_data(session: Session, hard_reload: bool = False):
             for data_old in prev_db_data:
                 vid_path = os.path.expanduser(data_old.video_path)
                 if (
-                    not os.path.exists(vid_path) or
-                    os.path.splitext(vid_path)[1] not in ALLOWED_FILES or
-                    not any(
+                    not os.path.exists(vid_path)
+                    or os.path.splitext(vid_path)[1] not in ALLOWED_FILES
+                    or not any(
                         is_subpath(vid_path, _root_path)
                         for _root_path in ROOT_DIRS
                     )
@@ -171,8 +171,10 @@ async def reload_data(session: Session, hard_reload: bool = False):
                             data_old.video.title} [!Exist][/bold red]"
                     )
                     session.delete(data_old)    # Delete from "VideoServer" db
-                    video_db_entry = session.exec(select(Video).where(Video.id == data_old.video_id)).all()
-                    if video_db_entry: session.delete(video_db_entry)
+                    video_db_entries = session.exec(select(Video).where(Video.id == data_old.video_id)).all()
+                    if video_db_entries:
+                        for video_db_entry in video_db_entries:
+                            session.delete(video_db_entry)
                     continue
 
                 filename_exists.append(data_old.video.title)
@@ -212,7 +214,7 @@ async def reload_data(session: Session, hard_reload: bool = False):
         async def proc_wrapper(
                 sem, before: str, fp, *args, **kwargs
         ) -> tuple[Video, VideoServer] | None:
-        
+
             try:
                 generated_video_info = await generate_video_info(sem, fp)
 
@@ -226,7 +228,7 @@ async def reload_data(session: Session, hard_reload: bool = False):
         tasks = [
             asyncio.create_task(
                 proc_wrapper(
-                    sem, 
+                    sem,
                     f"Making thumbnail for: {os.path.basename(file)}",
                     file
                 )

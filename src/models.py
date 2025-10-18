@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
 from uuid import uuid4
+import os
 
 
 class Video(SQLModel, table=True):
@@ -19,6 +20,20 @@ class VideoServer(SQLModel, table=True):
     video: Optional[Video] = Relationship(back_populates="servers")
     video_path: str
     thumbnail_path: str
+
+    def delete(self) -> bool:
+        os.remove(self.video_path)
+        return not os.path.exists(self.video_path)
+
+    def delete_thumb(self) -> bool:
+        os.remove(self.thumbnail_path)
+        return not os.path.exists(self.thumbnail_path)
+
+    def exists(self) -> bool:
+        return os.path.exists(self.video_path)
+
+    def thumb_exists(self) -> bool:
+        return os.path.exists(self.thumbnail_path)
 
 
 class DeletedVideo(SQLModel, table=True):

@@ -1,75 +1,82 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Video Library</title>
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Video Library</title>
 
-    <!-- Static Files -->
-    <link rel="stylesheet" href="./static/icons/css/solid.min.css" />
-    <link rel="stylesheet" href="./static/icons/css/fontawesome.min.css" />
-    <link rel="stylesheet" href="./static/css/index.css" />
-    <script type="module" src="./static/js/main.js" defer></script>
-    <script type="module" src="./static/js/index.js" defer></script>
-  </head>
+	<!-- Static Files -->
+	<link rel="stylesheet" href="./static/icons/css/solid.min.css" />
+	<link rel="stylesheet" href="./static/icons/css/fontawesome.min.css" />
+	<link rel="stylesheet" href="./static/css/index.css" />
+	<script type="module" src="./static/js/main.js" defer></script>
+	<script type="module" src="./static/js/index.js" defer></script>
+</head>
 
-  <body>
-    <div class="top-bar">
-      <button class="home-button" onclick="">
-        <i class="fa-solid fa-house"></i>
-      </button>
-
-      <div class="buttons">
-		<button class="cool-button" id="search-button" onclick="document.querySelector('#searchVideos').style.display = document.querySelector('#searchVideos').style.display === 'none' ? 'flex' : 'none'">
-		<i class="fa-solid fa-search"></i>
+<body>
+	<div class="top-bar">
+		<button class="home-button" onclick="">
+			<i class="fa-solid fa-house"></i>
 		</button>
-        <div id="filterDropDown" class="filter-dropdown">
-          <button id="showFilterDropDownButton" class="title cool-button">
-            <i class="fa-solid fa-filter"></i>
-          </button>
-          <div id="filterDropDownOptions" class="options-container">
-            <div class="option" data-sort-order="newerFirst">
-				Newer
-            </div>
-            <div class="option" data-sort-order="olderFirst">
-				Older
-            </div>
-            <div class="option" data-sort-order="biggerFirst">
-				Bigger
-            </div>
-            <div class="option" data-sort-order="smallerFirst">
-				Smaller
-            </div>
-          </div>
-        </div>
 
-        <button class="cool-button" id="reloadBtn" title="Reload the database">
-          <i class="fa-solid fa-rotate-right"></i>
-        </button>
-
-        <button class="cool-button" id="userBtn" title="User">
-          <i class="fa-solid fa-user"></i>
-        </button>
-
-        <button id="vidCount" class="cool-button" onclick="">
-					0
-        </button>
-      </div>
-    </div>
-    <div class="container">
-			<div class="search-bar" id="searchVideos" style="display: none;">
-				<label for="search-input" style="flex-shrink: 0;" >
-					<i class="fa-solid fa-search"></i>
-				</label>
-				<input id="search-input" style="flex-grow: 1;" type="search">
-				<button type="reset" style="flex-shrink: 0;">
-					<i class="fa-solid fa-close"></i>
+		<div class="buttons">
+			<button class="cool-button" id="search-button"
+				onclick="document.querySelector('#searchVideos').style.display = document.querySelector('#searchVideos').style.display === 'none' ? 'flex' : 'none'">
+				<i class="fa-solid fa-search"></i>
+			</button>
+			<div id="filterDropDown" class="filter-dropdown">
+				<button id="showFilterDropDownButton" class="title cool-button">
+					<i class="fa-solid fa-filter"></i>
 				</button>
+				<div id="filterDropDownOptions" class="options-container">
+					<div class="option" data-sort-order="newerFirst">
+						Newer
+					</div>
+					<div class="option" data-sort-order="olderFirst">
+						Older
+					</div>
+					<div class="option" data-sort-order="biggerFirst">
+						Bigger
+					</div>
+					<div class="option" data-sort-order="smallerFirst">
+						Smaller
+					</div>
+					<div class="option" data-sort-order="longerFirst">
+						Longer
+					</div>
+					<div class="option" data-sort-order="shorterFirst">
+						Shorter
+					</div>
+				</div>
 			</div>
+
+			<button class="cool-button" id="reloadBtn" title="Reload the database">
+				<i class="fa-solid fa-rotate-right"></i>
+			</button>
+
+			<button class="cool-button" id="userBtn" title="User">
+				<i class="fa-solid fa-user"></i>
+			</button>
+
+			<button id="vidCount" class="cool-button" onclick="">
+				0
+			</button>
+		</div>
+	</div>
+	<div class="container">
+		<div class="search-bar" id="searchVideos" style="display: none;">
+			<label for="search-input" style="flex-shrink: 0;">
+				<i class="fa-solid fa-search"></i>
+			</label>
+			<input id="search-input" style="flex-grow: 1;" type="search">
+			<button type="reset" style="flex-shrink: 0;">
+				<i class="fa-solid fa-close"></i>
+			</button>
+		</div>
 		<div class="video-grid empty" id="searchResults"></div>
-      <div class="video-grid" id="videoGrid"></div>
-    </div>
-    <div id="toast-container"></div>
-    <script id="videoCard"></script>
-  </body>
+		<div class="video-grid" id="favGrid"></div>
+		<div class="video-grid" id="videoGrid"></div>
+	</div>
+	<div id="toast-container"></div>
+	<script id="videoCard"></script>
+</body>
+
 </html>

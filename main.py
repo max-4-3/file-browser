@@ -2,9 +2,10 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from src.api import videos, thumbnails
+from src.api import normal_session, router, Session
 import uvicorn
-from src.data_store import get_session, Session
+import src.api.videos
+import src.api.thumbnails
 from src.utils.helpers import reload_data
 
 app = FastAPI()
@@ -26,7 +27,7 @@ app.add_middleware(
 @app.post("/reload")
 async def update_data_store(
         hard: bool = False,
-        session: Session = Depends(get_session)
+        session: Session = Depends(normal_session.get_session)
 ):
     if await reload_data(session, hard):
         return 200
@@ -50,8 +51,7 @@ async def read_root():
 async def watch_video():
     return FileResponse("pages/watch.html")
 
-app.include_router(videos.router, prefix="/api")
-app.include_router(thumbnails.router, prefix="/api")
+app.include_router(router, prefix="/api")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", reload=True, host="0.0.0.0", port=8000)

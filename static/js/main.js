@@ -37,6 +37,7 @@ export const MainModule = (() => {
         deleteBtnCallback = (video, cardElement) => { console.log('Video Deleted: ' + video.id); cardElement.remove() },
     }) {
         const card = document.createElement("div");
+		card.href = `/watch?id=${video.id}`;
         const isFav = isFavouriteCallback(video);
         card.className = "card";
         card.dataset.videoId = video.id;
@@ -72,7 +73,7 @@ export const MainModule = (() => {
 		
         const delBtn = thumbnailContainer.querySelector("#deleteVidBtn")
         if (delBtn instanceof Element) {
-            delBtn.addEventListener("click", e => {deleteBtnCallback(video, card)})
+            delBtn.addEventListener("click", () => {deleteBtnCallback(video, card)})
         } else { console.error("Unable to attach delete callback to button!\n" + `Type of delBtn = ${typeof Element}`) }
 
 		const videoInfoContaier = document.createElement("div");
@@ -236,6 +237,8 @@ export function sortingState() {
         olderFirst: false,
         biggerFirst: false,
         smallerFirst: false,
+		longerFirst: false,
+		shorterFirst: false
     }
     const sortingState = localStorage.getItem('sortingState')
     if (sortingState) {
@@ -274,17 +277,10 @@ export function showStatsBottom(videos) {
     `;
 }
 
-let timeout;
-window.addEventListener("resize", () => {
-	clearTimeout(timeout);
-	timeout = setTimeout(() => {
-		if (window.innerWidth < 400) {
-			document.querySelectorAll('.video-grid').forEach(elem => elem.style.setProperty('--card-size', Math.max(100, window.innerWidth) + 'px'))
-		} else {
-			document.querySelectorAll('.video-grid').forEach(elem => elem.style.setProperty('--card-size', 400 + 'px'))
-		}
-	}, 200);
-})
+if (window.innerWidth <= 400) {
+	let newWidth = Math.max(200, window.innerWidth) - 20
+	document.querySelectorAll('.video-grid').forEach(elem => elem.style.setProperty('--card-size', newWidth + 'px'))
+}
 
 export function getUserName() {
 	return localStorage.getItem("login");

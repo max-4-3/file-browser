@@ -68,8 +68,6 @@ body {
     color: var(--light);
     line-height: 1.5;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
 }
 
 img {
@@ -126,7 +124,7 @@ upper {
 	--card-size: 400px;
 	width: 100%;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--card-size), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-size), 1fr));
     gap: var(--space-md);
     margin-bottom: var(--space-md);
 }
@@ -137,7 +135,7 @@ upper {
 
 @media (max-width: 400px) {
 	.video-grid {
-		width: initial
+		width: initial;
 	}
 }
 

@@ -414,6 +414,11 @@ function prepareVideos() {
 			return valA - valB;
 		}
 
+		function convertDurationToInt(value) {
+			const [m, s] = String(value).split(":");
+			return m * 60 + s;
+		}
+
 		if (sortingState.biggerFirst) {
 			return differenceOfProperty("filesize", b, a);
 		} else if (sortingState.smallerFirst) {
@@ -422,6 +427,10 @@ function prepareVideos() {
 			return differenceOfProperty("modified_time", b, a);
 		} else if (sortingState.olderFirst) {
 			return differenceOfProperty("modified_time", a, b);
+		} else if (sortingState.longerFirst) {
+			return differenceOfProperty("duration", b, a, convertDurationToInt);
+		} else if (sortingState.shorterFirst) {
+			return differenceOfProperty("duration", a, b, convertDurationToInt);
 		} else {
 			return 0;
 		}
@@ -446,6 +455,7 @@ function renderVideos() {
 	const videoCards = newBatch.map(videoData => MainModule.renderVideo({
 		video: videoData,
 		deleteBtnCallback: deleteVideo,
+		thumbnailCallback: () => {},
 	}));
 
 	// Append newly created video card to grid or apply any function to card ( e.g. middle click handler )
@@ -494,6 +504,7 @@ function renderNextBatch(observerEntries) {
 		const videoCards = nextBatch.map(videoData => MainModule.renderVideo({
 			video: videoData,
 			deleteBtnCallback: deleteVideo,
+			thumbnailCallback: () => {},
 		}));
 
 		// Append newly created video card to grid or apply any function to card ( e.g. middle click handler )
@@ -641,8 +652,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 		searchResults.classList.add("empty");
 		searchResults.innerHTML = ""; // clear any old results
 	});
+	
+	// Debounce (i.e. runs after the user stop firing enevts
+	function debounce(func, delay) {
+		let timeout;
+		return function (...args) {
+			clearTimeout(timeout);
+			timeout = setTimeout(() => func.apply(this, args), delay)
+		}
+	}
 
-	searchInput.addEventListener("input", (e) => {
+	searchInput.addEventListener("input", debounce(() => {
 		const searchTerm = searchInput.value.trim();
 		searchResults.innerHTML = ""; // clear before rendering new results
 
@@ -667,7 +687,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 			searchResults.classList.add("empty");
 			videoGrid.style.display = "none";
 		}
-	});
+	}, 650));
 
 
 	// User

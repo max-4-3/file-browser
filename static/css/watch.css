@@ -204,32 +204,6 @@
 	gap: var(--space-md);
 }
 
-.grid-placeholder {
-	grid-column: 1 / -1;
-	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-	gap: var(--space-lg);
-}
-
-.placeholder-card {
-	background: var(--dark);
-	border-radius: var(--radius-md);
-	aspect-ratio: 16/9;
-	position: relative;
-	overflow: hidden;
-}
-
-.placeholder-card::after {
-	content: "";
-	position: absolute;
-	inset: 0;
-	background: linear-gradient(90deg,
-			transparent,
-			rgba(255, 255, 255, 0.05),
-			transparent);
-	animation: shimmer 1.5s infinite;
-}
-
 .fetch-error {
 	grid-column: 1 / -1;
 	display: flex;
