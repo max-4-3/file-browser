@@ -152,6 +152,7 @@ upper {
     text-align: center;
 }
 
+.cool-button.active,
 .cool-button:hover {
     background-color: var(--light);
     color: var(--dark-gray);

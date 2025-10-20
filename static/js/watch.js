@@ -142,6 +142,21 @@ const PlayerModule = (() => {
 		});
 
 		// Make Custom Buttons!
+		const repeatVideoButton = document.createElement("div");
+		const videoElement = document.querySelector("video");
+		repeatVideoButton.className = "cool-button";
+		repeatVideoButton.innerHTML = `<i class="fa-regular fa-repeat"></i>`;
+
+		repeatVideoButton.addEventListener("click", () => {
+			if (repeatVideoButton.classList.contains("active")) {
+				repeatVideoButton.classList.remove("active")
+				videoElement.loop = false
+			} else {
+				repeatVideoButton.classList.add("active")
+				videoElement.loop = true
+			}
+		});
+
 		const copyButton = document.createElement("div");
 		copyButton.className = "cool-button";
 		copyButton.innerHTML = `<i class="fa-regular fa-copy"></i>`;
@@ -223,7 +238,7 @@ const PlayerModule = (() => {
 			}
 		})
 
-		chipsContainer.append(copyButton, shareVideoButton, deleteVideoButton);
+		chipsContainer.append(repeatVideoButton, copyButton, shareVideoButton, deleteVideoButton);
 		videoInfoContainer.appendChild(videoTitleContainer);
 		videoInfoContainer.appendChild(chipsContainer);
 	}
