@@ -1,11 +1,12 @@
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from src.api import normal_session, router, Session
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 import uvicorn
-import src.api.videos
-import src.api.thumbnails
+
+from src.api import Session, normal_session, router
+from src.api.thumbnails import router
+from src.api.videos import router
 from src.utils.helpers import reload_data
 
 app = FastAPI()
@@ -26,8 +27,7 @@ app.add_middleware(
 # Endpoint to reload
 @app.post("/reload")
 async def update_data_store(
-        hard: bool = False,
-        session: Session = Depends(normal_session.get_session)
+    hard: bool = False, session: Session = Depends(normal_session.get_session)
 ):
     if await reload_data(session, hard):
         return 200
@@ -50,6 +50,7 @@ async def read_root():
 @app.get("/watch", response_class=FileResponse)
 async def watch_video():
     return FileResponse("pages/watch.html")
+
 
 app.include_router(router, prefix="/api")
 

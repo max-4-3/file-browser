@@ -16,8 +16,10 @@ from src.api import (
 )
 
 
-@router.get('/video')
-async def get_video(video_id: str, session: Session = Depends(normal_session.get_session)):
+@router.get("/video")
+async def get_video(
+    video_id: str, session: Session = Depends(normal_session.get_session)
+):
 
     video_server: VideoServer | None = session.exec(
         select(VideoServer).where(VideoServer.video_id == video_id)
@@ -31,19 +33,23 @@ async def get_video(video_id: str, session: Session = Depends(normal_session.get
 
     response = FileResponse(
         video_server.video_path,
-        filename=video_server.video.title + ".mp4" if video_server.video else 'Untitled_video.mp4',
-        media_type="video/mp4"
+        filename=(
+            video_server.video.title + ".mp4"
+            if video_server.video
+            else "Untitled_video.mp4"
+        ),
+        media_type="video/mp4",
     )
     response.headers["Access-Control-Allow-Origin"] = "*"
 
     return response
 
 
-@router.delete('/video')
+@router.delete("/video")
 async def delete_video(
-        video_id: str,
-        user: str = Header(...),
-        session: Session = Depends(normal_session.get_session)
+    video_id: str,
+    user: str = Header(...),
+    session: Session = Depends(normal_session.get_session),
 ):
     if user != "maxim":
         raise HTTPException(401, "Unauthorized")
@@ -63,8 +69,10 @@ async def delete_video(
         raise VideoInfoNotFound(f"{video_id} (2)")
 
     video_data = {
-        **(video_server.video.model_dump() if video_server.video else {}),
-        "related_video": video_server.video.model_dump() if video_server.video else None
+        **(video_server.model_dump()),
+        "related_video": (
+            video_server.video.model_dump() if video_server.video else None
+        ),
     }
 
     if not video_server.exists():
@@ -82,11 +90,19 @@ async def delete_video(
     second_session = next(deleted_video_session.get_session())
     second_session.add(
         DeletedVideo(
-            id=video_data.get("related_video", {}).get("id", "No Valid Info, Check 'extra info'."),
-            title=video_data.get("related_video", {}).get("title", "No Valid Info, Check 'extra info'."),
-            filesize=video_data.get("related_video", {}).get("filesize", -1),
-            video_path=video_data.get("video_path", "No Valid Info, Che`ck 'extra info'."),
-            extra_info=json.dumps(video_data) if video_data else "{}"
+            id=video_data.get(
+                "video_id", "No Valid Info, Check 'extra info'."
+            ),
+            title=video_data.get("related_video", {}).get(
+                "title", "No Valid Info, Check 'extra info'."
+            ),
+            filesize=video_data.get("related_video", {}).get(
+                "filesize", -1
+            ),
+            video_path=video_data.get(
+                "video_path", "No Valid Info, Check 'extra info'."
+            ),
+            extra_info=json.dumps(video_data) if video_data else "{}",
         )
     )
 
@@ -97,13 +113,15 @@ async def delete_video(
     return video_data
 
 
-@router.get('/videos')
+@router.get("/videos")
 async def get_videos(session: Session = Depends(normal_session.get_session)):
     return {"videos": session.exec(select(Video)).all()}
 
 
-@router.get('/stats', response_model=Video)
-async def get_stat(video_id: str, session: Session = Depends(normal_session.get_session)):
+@router.get("/stats", response_model=Video)
+async def get_stat(
+    video_id: str, session: Session = Depends(normal_session.get_session)
+):
     video_server: VideoServer | None = session.exec(
         select(VideoServer).where(VideoServer.video_id == video_id)
     ).first()

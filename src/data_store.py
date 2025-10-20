@@ -27,7 +27,9 @@ def create_models(
     SQLModel.metadata.create_all(engine, tables=tables)
 
 
-def create_engine_url(file_name: str, root_dir: str | None = None, suffix: str = "sqlite:///") -> str:
+def create_engine_url(
+    file_name: str, root_dir: str | None = None, suffix: str = "sqlite:///"
+) -> str:
     # Use file's path if root_dir not given
     db_path = Path(root_dir) if root_dir else Path(__file__)
 

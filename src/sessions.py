@@ -6,8 +6,7 @@ from typing import Protocol, Generator
 
 
 class DataBaseSession(Protocol):
-    def get_session(self) -> Generator[Session, None, None]:
-        ...
+    def get_session(self) -> Generator[Session, None, None]: ...
 
 
 class NormalSession:

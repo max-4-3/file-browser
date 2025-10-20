@@ -1,25 +1,89 @@
-import os
 import asyncio
-from rich import print
+import os
+from pathlib import Path
+from typing import Callable
+
 from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
     Progress,
-    TextColumn,         # For displaying text
-    BarColumn,          # For the actual progress bar
-    MofNCompleteColumn,  # For Displaying: completed/total
-    TimeElapsedColumn,  # How much time elapsed
-    TimeRemainingColumn  # How much time remaning
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
 )
-from src.utils.video_processing import generate_video_info
-from src.models import Video, VideoServer
+from sqlmodel import Session, select
+
 from src import ALLOWED_FILES, ROOT_DIRS
-from sqlmodel import select, Session
+from src.models import Video, VideoServer
+from src.utils.video_processing import generate_video_info
 
 
-def is_subpath(child, parent):
-    try:
-        return os.path.commonpath([child, parent]) == parent
-    except ValueError:
-        return False
+# Helper functions
+def discover_files(
+    file_validator: Callable[[Path], bool],
+    progress_callback: Callable[[Path], None],
+) -> list[Path]:
+    discovered_files: list[Path] = []
+
+    for root_dir in ROOT_DIRS:
+        root_dir = Path(root_dir)
+
+        # iter through `root_dir` files
+        for file in root_dir.rglob('*'):
+
+            if not file.is_file():
+                continue
+
+            if not file_validator(file):
+                continue
+
+            # `file` is valid and we should add it
+            progress_callback(file)
+            discovered_files.append(file)
+
+    return discovered_files
+
+
+async def create_modals(
+    files: list[Path],
+    progress_callback: Callable[[], None],
+    error_callback: Callable[[Path, Exception], None],
+    *,
+    sem_limit: int = os.cpu_count() or 4,
+) -> list[tuple[Video, VideoServer]]:
+
+    sem = asyncio.Semaphore(sem_limit)
+
+    async def proc_wrapper(fp: Path):
+        try:
+            result = await generate_video_info(sem, str(fp.resolve().absolute()))
+            progress_callback()
+            return result
+        except Exception as e:
+            error_callback(fp, e)
+
+    tasks = [proc_wrapper(file) for file in files]
+    results = []
+    for result in await asyncio.gather(*tasks):
+        if result is not None:
+            results.append(result)
+
+    return results
+
+
+def add_modals_to_db(
+    session: Session,
+    modals: list[tuple[Video, VideoServer]],
+    progress_callback: Callable[[], None],
+    error_callback: Callable[[tuple[Video, VideoServer], Exception], None],
+):
+    for vid, vid_server in modals:
+        try:
+            session.add(vid)
+            session.add(vid_server)
+            progress_callback()
+        except Exception as e:
+            error_callback((vid, vid_server), e)
 
 
 async def make_data(session: Session):
@@ -33,78 +97,51 @@ async def make_data(session: Session):
         TimeRemainingColumn(),
     ) as progress_bar:
 
-        files_to_add = []
-
         # Video discovery task
         video_discovery_task = progress_bar.add_task(
-            "[cyan]Discovering[/cyan]", total=0)
+            "[cyan]Discovering files[/cyan]", total=0
+        )
 
-        for root_dir in ROOT_DIRS:
-            for root, _, files in os.walk(root_dir):
-                for file in files:
-                    name, ext = os.path.splitext(file)
+        # Validator
+        def is_file_valid(file: Path) -> bool:
+            return bool(file.suffix and file.suffix in ALLOWED_FILES)
 
-                    if (not ext) or (ext not in ALLOWED_FILES):
-                        continue
-
-                    # print(f"[[green]+[/green]] {name + ext}")
-                    progress_bar.update(video_discovery_task, advance=1)
-                    files_to_add.append(os.path.join(root, file))
-
+        files_to_add = discover_files(
+            is_file_valid, lambda _: progress_bar.advance(video_discovery_task)
+        )
         progress_bar.update(video_discovery_task, total=len(files_to_add))
 
+        # Early exit
         if not files_to_add:
             return
 
+        # Video modal generation
         video_generation_task = progress_bar.add_task(
-            "[green]Generating Models[/green]", total=len(files_to_add))
-
-        async def proc_wrapper(
-                sem, before: str, fp, *args, **kwargs
-        ) -> tuple[Video, VideoServer] | None:
-
-            try:
-                generated_video_info = await generate_video_info(sem, fp)
-                progress_bar.update(video_generation_task, advance=1)
-                return generated_video_info
-            except Exception as e:
-                print(f"[red]Error \"{fp}\"[/red]: {e}")
-
-        sem = asyncio.Semaphore(os.cpu_count() or 3)
-        tasks = [
-            asyncio.create_task(
-                proc_wrapper(
-                    sem,
-                    f"Making thumbnail for: {os.path.basename(file)}",
-                    file
-                )
-            ) for file in files_to_add
-        ]
-
-        data = []
-        for result in await asyncio.gather(*tasks):
-            if not result:
-                print("[yellow]Skipping[/yellow]...")
-                continue
-            data.append(result)
-
-        add_video_task = progress_bar.add_task(
-            "[green]Adding[/green]", total=len(data)
+            "[green]Generating models[/green]", total=len(files_to_add)
+        )
+        results = await create_modals(
+            files_to_add,
+            lambda: progress_bar.advance(video_generation_task),
+            progress_bar.console.log,
         )
 
-        for video, video_server in data:
-            try:
-                session.add(video)
-                session.add(video_server)
-                progress_bar.update(add_video_task, advance=1)
-            except Exception as e:
-                print("Exception while inseting to db:", e)
+        # Add generated video to database
+        add_video_task = progress_bar.add_task(
+            "[green]Inserting in db[/green]", total=len(results)
+        )
+        add_modals_to_db(
+            session,
+            results,
+            lambda: progress_bar.advance(add_video_task),
+            lambda _, e: progress_bar.console.log("Error while inserting to db:", e)
+            or progress_bar.console.log(_[1]),
+        )
 
         session.commit()
         return True
 
 
-async def reload_data(session: Session, hard_reload: bool = False):
+async def reload_data(session: Session, hard_reload: bool = False) -> bool:
     with Progress(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
@@ -116,7 +153,7 @@ async def reload_data(session: Session, hard_reload: bool = False):
     ) as progress_bar:
 
         if hard_reload:
-            progress_bar.print(
+            progress_bar.console.print(
                 "[yellow bold]Performing hard reload: wiping DB and thumbnails...[/bold yellow]"
             )
 
@@ -129,15 +166,16 @@ async def reload_data(session: Session, hard_reload: bool = False):
             )
 
             for entry in all_thumbs:
-                if os.path.exists(entry.thumbnail_path):
+                if entry.thumb_exists():
                     try:
-                        os.remove(entry.thumbnail_path)
+                        entry.delete_thumb()
                     except Exception as e:
-                        print(f"[red]Failed to delete thumbnail {
-                              entry.thumbnail_path}[/red]: {e}")
+                        progress_bar.console.log(
+                            f"[red]Failed to delete thumbnail [italic]{entry.thumbnail_path}[/italic][/red]: {e}"
+                        )
 
                 # Update the progress bar's 'n'
-                progress_bar.update(thumb_remove_task, advance=1)
+                progress_bar.advance(thumb_remove_task)
                 session.delete(entry)
 
             # Delete all DB entries
@@ -149,58 +187,52 @@ async def reload_data(session: Session, hard_reload: bool = False):
 
         else:
             # Partial reload: remove stale or orphaned entries only
-            prev_db_data: list[VideoServer] = session.exec(
-                select(VideoServer)
-            ).all()
+            prev_db_data = session.exec(select(VideoServer)).all()
             filename_exists = []
 
             for data_old in prev_db_data:
-                vid_path = os.path.expanduser(data_old.video_path)
+                vid_path = Path(data_old.video_path)
                 if (
-                    not os.path.exists(vid_path)
-                    or os.path.splitext(vid_path)[1] not in ALLOWED_FILES
+                    not vid_path.exists()
+                    or vid_path.suffix not in ALLOWED_FILES
                     or not any(
-                        is_subpath(vid_path, _root_path)
-                        for _root_path in ROOT_DIRS
+                        vid_path.is_relative_to(_root_path) for _root_path in ROOT_DIRS
                     )
                 ):
-                    if os.path.exists(data_old.thumbnail_path):
-                        os.remove(data_old.thumbnail_path)
+                    if data_old.thumb_exists():
+                        data_old.delete_thumb()
+
                     progress_bar.print(
-                        f"[red bold]File Removed: {
-                            data_old.video.title} [!Exist][/bold red]"
+                        f"[red bold]File Removed: {vid_path.stem} [!Exist][/bold red]"
                     )
-                    session.delete(data_old)    # Delete from "VideoServer" db
-                    video_db_entries = session.exec(select(Video).where(Video.id == data_old.video_id)).all()
+
+                    session.delete(data_old)  # Delete from "VideoServer" db
+                    # Delete the related video from "videos" db
+                    video_db_entries = session.exec(
+                        select(Video).where(Video.id == data_old.video_id)
+                    ).all()
                     if video_db_entries:
                         for video_db_entry in video_db_entries:
                             session.delete(video_db_entry)
                     continue
 
-                filename_exists.append(data_old.video.title)
+                filename_exists.append(vid_path.stem)
 
             session.commit()
 
         # New Discover file task
         discover_file_task = progress_bar.add_task("[cyan]Discovering[/cyan]")
 
-        # Discover new video files
-        new_files = []
-        for root_path in ROOT_DIRS:
-            for root, _, files in os.walk(root_path):
-                for file in files:
-                    name, ext = os.path.splitext(file)
+        # Discover new files
+        def is_file_valid(file: Path) -> bool:
+            return bool(
+                (file.stem not in filename_exists)
+                and (file.suffix and file.suffix in ALLOWED_FILES)
+            )
 
-                    if name in filename_exists:  # Already exists
-                        continue
-                    if (not ext) or (ext not in ALLOWED_FILES):
-                        continue
-
-                    # print(f"[bold green] File Added: {name + ext}[/green bold]")
-                    # Update the progress bar's 'n'
-                    progress_bar.update(discover_file_task, advance=1)
-                    new_files.append(os.path.join(root, name + ext))
-
+        new_files = discover_files(
+            is_file_valid, lambda _: progress_bar.advance(discover_file_task)
+        )
         progress_bar.update(discover_file_task, total=len(new_files))
 
         if not new_files:
@@ -210,51 +242,23 @@ async def reload_data(session: Session, hard_reload: bool = False):
             "[green]Generating Models[/green]", total=len(new_files)
         )
 
-        # Run generate_video_info concurrently with sem-limiting
-        async def proc_wrapper(
-                sem, before: str, fp, *args, **kwargs
-        ) -> tuple[Video, VideoServer] | None:
-
-            try:
-                generated_video_info = await generate_video_info(sem, fp)
-
-                # Update the progress bar's 'n'
-                progress_bar.update(video_info_task, advance=1)
-                return generated_video_info
-            except Exception as e:
-                print(f"[red]Error \"{fp}\"[/red]: {e}")
-
-        sem = asyncio.Semaphore(os.cpu_count() or 2)
-        tasks = [
-            asyncio.create_task(
-                proc_wrapper(
-                    sem,
-                    f"Making thumbnail for: {os.path.basename(file)}",
-                    file
-                )
-            )
-            for file in new_files
-        ]
-
-        data = []
-        for result in await asyncio.gather(*tasks):
-            if not result:
-                print("[yellow]Skipping[/yellow]...")
-                continue
-            data.append(result)
+        results = await create_modals(
+            new_files,
+            lambda: progress_bar.advance(video_info_task),
+            progress_bar.console.log,
+        )
+        progress_bar.advance(video_info_task, len(new_files) - len(results))
 
         add_video_task = progress_bar.add_task(
-            "[green]Adding[/green]", total=len(data)
+            "[green]Adding[/green]", total=len(results)
         )
-
-        # Add new data to DB
-        for video, video_server in data:
-            try:
-                session.add(video)
-                session.add(video_server)
-                progress_bar.update(add_video_task, advance=1)
-            except Exception as e:
-                print(f"[red]Exception while inserting into DB[/red]: {e}")
+        add_modals_to_db(
+            session,
+            results,
+            lambda: progress_bar.advance(add_video_task),
+            lambda _, e: progress_bar.console.print("Error while inserting to db:", e)
+            or progress_bar.console.print(_[1]),
+        )
 
         session.commit()
     return True

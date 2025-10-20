@@ -7,12 +7,14 @@ from src.api import (
     Session,
     FileResponse,
     VideoInfoNotFound,
-    FileNotFoundOnServer
+    FileNotFoundOnServer,
 )
 
 
-@router.get('/thumbnail')
-async def get_thumbnail(video_id: str, session: Session = Depends(normal_session.get_session)):
+@router.get("/thumbnail")
+async def get_thumbnail(
+    video_id: str, session: Session = Depends(normal_session.get_session)
+):
     video_server: VideoServer | None = session.exec(
         select(VideoServer).where(VideoServer.video_id == video_id)
     ).first()
@@ -25,7 +27,11 @@ async def get_thumbnail(video_id: str, session: Session = Depends(normal_session
 
     response = FileResponse(
         video_server.thumbnail_path,
-        filename=video_server.video.title + ".jpg" if video_server.video else "Untitled_thumbnail.jpg"
+        filename=(
+            video_server.video.title + ".jpg"
+            if video_server.video
+            else "Untitled_thumbnail.jpg"
+        ),
     )
     response.headers["Access-Control-Allow-Origin"] = "*"
 

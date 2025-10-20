@@ -2,7 +2,7 @@ from fastapi import HTTPException
 
 
 class VideoInfoNotFound(HTTPException):
-    def __init__(self, video_id: int):
+    def __init__(self, video_id):
         super().__init__(
             status_code=400,
             detail=f"Unable to find video's info related to id: {video_id}",

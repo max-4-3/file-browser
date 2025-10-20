@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, Field, Relationship
 from typing import Optional, List
 from uuid import uuid4
-import os
+import os, json
 
 
 class Video(SQLModel, table=True):
@@ -42,3 +42,10 @@ class DeletedVideo(SQLModel, table=True):
     video_path: str = Field(...)
     filesize: int = Field(...)
     extra_info: str = Field(default="{}")
+
+    def set_extra(self, extra: dict) -> str:
+        self.extra_info = json.dumps(extra)
+        return self.extra_info
+
+    def get_extra(self) -> dict:
+        return json.loads(self.extra_info)
