@@ -17,7 +17,9 @@ let isAndroid = (function () {
 let prevBatch = [];
 const batchSize = 10;
 const videoGrid = document.querySelector("#videoGrid");
-const renderVideosObserver = new IntersectionObserver(renderNextBatch);
+const renderVideosObserver = new IntersectionObserver(renderNextBatch, {
+	rootMargin: "100px"
+});
 
 async function fetchVideos(apiEndpoint = "/api/videos") {
 	try {

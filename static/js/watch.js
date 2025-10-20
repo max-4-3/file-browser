@@ -29,7 +29,7 @@ let isAndroid = (function () {
 })();
 let prevBatch = [];
 const batchSize = 10;
-const renderVideoObserver = new IntersectionObserver(renderNextBatch)
+const renderVideoObserver = new IntersectionObserver(renderNextBatch, {rootMargin: "100px"});
 let player; // Holds the Plyr instance
 let plyrTimeoutId; // Stores the ID for the Plyr initialization timeout
 let playerInitialized = false; // Flag to indicate if *any* player (Plyr or native) is active
