@@ -88,7 +88,11 @@ const PlayerModule = (() => {
 
 		playerElement.className = "video";
 		playerElement.style.width = "100%";
-		playerElement.style.height = "100%";
+		playerElement.style.height = "70dvh";
+		playerElement.style.border = "1px solid var(--gray)"
+		playerElement.style.background = "black";
+		playerElement.style.borderRadius = "var(--space-sm)";
+		playerElement.style.boxShadow = "var(--shadow-md)";
 		playerElement.src = `/api/video?video_id=${videoId}`;
 		playerElement.setAttribute("preload", "metadata");
 		playerElement.controls = true;
