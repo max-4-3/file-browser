@@ -108,6 +108,11 @@ const PlayerModule = (() => {
 				"Error playing video in native player. Please check the video source.",
 			);
 		};
+
+		document.addEventListener("fullscreenchange", () => {
+			playerElement.style.borderWidth = document.fullscreen ? 0 : 1 + "px";
+
+		})
 	}
 
 	function setVideoInfo() {
