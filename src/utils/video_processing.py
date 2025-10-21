@@ -1,10 +1,11 @@
 import asyncio
 import json
 import os
+from hashlib import sha512
+from pathlib import Path
 from uuid import uuid4
 from src import THUMB_PATH, PERFORMANCE
-from src.models import Video, VideoServer
-from pathlib import Path
+from src.models import VideosDataBase
 
 
 def convert_time(time_float: float) -> str:
@@ -92,9 +93,11 @@ async def generate_thumbnail(
 
 async def generate_video_info(
     sem: asyncio.Semaphore, vid_path: str
-) -> tuple[Video, VideoServer] | None:
+) -> VideosDataBase | None:
 
     async with sem:
+        _vid_path = Path(vid_path)
+
         format_command = [
             "ffprobe",
             "-print_format",
@@ -122,16 +125,8 @@ async def generate_video_info(
 
         video_probe = json.loads((stdout or stderr or b"{}").decode(errors="ignore"))
         format_info = video_probe.get("format", {})
-        duration = float(format_info.get("duration", 0))
+        duration = int(float(format_info.get("duration", 0)))
         size = int(format_info.get("size", 0))
-        title = os.path.splitext(os.path.basename(vid_path))[0]
-
-        video_obj = Video(
-            title=title,
-            duration=convert_time(duration),
-            filesize=size,
-            modified_time=os.path.getmtime(vid_path),
-        )
 
         # find likely static image stream
         thumb_stream_index = -2
@@ -144,8 +139,13 @@ async def generate_video_info(
         if not thumb_path:
             raise OSError("Thumbnail generation failed")
 
-        video_server = VideoServer(
-            video_id=video_obj.id, video_path=vid_path, thumbnail_path=thumb_path
+        return VideosDataBase(
+            id=sha512((vid_path + thumb_path).encode()).hexdigest(),
+            title=_vid_path.stem,
+            video_path=vid_path,
+            thumbnail_path=thumb_path,
+            duration=duration,
+            filesize=size,
+            modified_time=_vid_path.stat().st_mtime,
+            extras=video_probe
         )
-
-        return video_obj, video_server

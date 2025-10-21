@@ -1,51 +1,58 @@
-from sqlmodel import SQLModel, Field, Relationship
-from typing import Optional, List
-from uuid import uuid4
-import os, json
+from sqlmodel import SQLModel, Column, JSON, Field
+from pydantic import BaseModel
+import os
+from datetime import datetime
 
 
-class Video(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    title: str
-    duration: str
-    filesize: int
-    modified_time: float
-
-    servers: List["VideoServer"] = Relationship(back_populates="video")
-
-
-class VideoServer(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    video_id: str = Field(foreign_key="video.id")
-    video: Optional[Video] = Relationship(back_populates="servers")
-    video_path: str
-    thumbnail_path: str
-
-    def delete(self) -> bool:
-        os.remove(self.video_path)
-        return not os.path.exists(self.video_path)
-
-    def delete_thumb(self) -> bool:
-        os.remove(self.thumbnail_path)
-        return not os.path.exists(self.thumbnail_path)
-
-    def exists(self) -> bool:
-        return os.path.exists(self.video_path)
-
-    def thumb_exists(self) -> bool:
-        return os.path.exists(self.thumbnail_path)
-
-
-class DeletedVideo(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
+class VideosDataBase(SQLModel, table=True):
+    id: str = Field(default=None, primary_key=True)
     title: str = Field(...)
     video_path: str = Field(...)
+    thumbnail_path: str = Field(...)
+
+    filesize: int = Field(default=-1)
+    modified_time: float = Field(default_factory=datetime.now().timestamp)
+    duration: int = Field(default=-1)
+    timestamp: float = Field(default_factory=datetime.now().timestamp)
+
+    extras: dict = Field(sa_column=Column(JSON), default_factory=dict)
+
+    def exist(self) -> bool:
+        return os.path.exists(self.video_path)
+
+    def exist_thumb(self) -> bool:
+        return os.path.exists(self.thumbnail_path)
+
+    def delete_thumb(self):
+        if self.exist_thumb():
+            os.remove(self.thumbnail_path)
+    
+    def delete(self):
+        if self.exist():
+            os.remove(self.video_path)
+
+class VideoResponse(BaseModel):
+    id: str = Field(...)
+    title: str
+
+    duration: int
+    filesize: int
+    modified_time: float
+    extras: dict
+
+class DeletedVideo(SQLModel, table=True):
+    id: str = Field(default=None, primary_key=True)
+    title: str = Field(...)
+    video_path: str = Field(...)
+    duration: int = Field(...)
     filesize: int = Field(...)
-    extra_info: str = Field(default="{}")
+    timestamp: float = Field(default_factory=datetime.now().timestamp)
+    extras: dict = Field(sa_column=Column(JSON), default_factory=dict)
 
-    def set_extra(self, extra: dict) -> str:
-        self.extra_info = json.dumps(extra)
-        return self.extra_info
-
-    def get_extra(self) -> dict:
-        return json.loads(self.extra_info)
+class DeletedVideoResponse(BaseModel):
+    id: str = Field(default_factory=str)
+    title: str = Field(...)
+    duration: int = Field(...)
+    filesize: int = Field(...)
+    timestamp: float = Field(...)
+    extras: dict = Field(...)

@@ -46,6 +46,17 @@ export const MainModule = (() => {
             card.classList.add("favourite")
         }
 
+		function convertDuration(rawDuration) {
+		  if (typeof rawDuration === "string") return rawDuration;
+
+		  const totalSeconds = Math.max(parseInt(rawDuration, 10) || 0, 0);
+		  const minutes = Math.floor(totalSeconds / 60);
+		  const seconds = totalSeconds % 60;
+
+		  // Return formatted string like "2:05"
+		  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+		}
+
         const thumbnailContainer = document.createElement("div");
         thumbnailContainer.className = "thumbnail-box";
         thumbnailContainer.innerHTML = `
@@ -61,7 +72,7 @@ export const MainModule = (() => {
 			<i class="fa-solid fa-trash"></i>
         </div>
         </div>
-        <div class="duration-badge">${video.duration}</div>
+        <div class="duration-badge">${convertDuration(video.duration)}</div>
         `;
         const favBtn = thumbnailContainer.querySelector("#addFavBtn");
         favBtn.addEventListener("click", (event) => {

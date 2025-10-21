@@ -1,4 +1,4 @@
-from src.models import VideoServer
+from src.models import VideosDataBase
 from src.api import (
     router,
     select,
@@ -15,22 +15,20 @@ from src.api import (
 async def get_thumbnail(
     video_id: str, session: Session = Depends(normal_session.get_session)
 ):
-    video_server: VideoServer | None = session.exec(
-        select(VideoServer).where(VideoServer.video_id == video_id)
+    video_server = session.exec(
+        select(VideosDataBase).where(VideosDataBase.id == video_id)
     ).first()
 
     if not video_server:
         raise VideoInfoNotFound(video_id)
 
-    if not video_server.exists():
+    if not video_server.exist():
         raise FileNotFoundOnServer()
 
     response = FileResponse(
         video_server.thumbnail_path,
         filename=(
-            video_server.video.title + ".jpg"
-            if video_server.video
-            else "Untitled_thumbnail.jpg"
+            video_server.title + ".jpg"
         ),
     )
     response.headers["Access-Control-Allow-Origin"] = "*"

@@ -14,11 +14,22 @@ from rich.progress import (
 from sqlmodel import Session, select
 
 from src import ALLOWED_FILES, ROOT_DIRS
-from src.models import Video, VideoServer
+from src.models import VideoResponse, VideosDataBase
 from src.utils.video_processing import generate_video_info
 
 
 # Helper functions
+def convert_db_to_response(db_entry: VideosDataBase, include_extras: bool = False) -> VideoResponse:
+    return VideoResponse(
+        id=db_entry.id,
+        title=db_entry.title,
+        duration=db_entry.duration,
+        filesize=db_entry.filesize,
+        modified_time=db_entry.modified_time,
+        extras=db_entry.extras if include_extras else {},
+    )
+
+
 def discover_files(
     file_validator: Callable[[Path], bool],
     progress_callback: Callable[[Path], None],
@@ -29,7 +40,7 @@ def discover_files(
         root_dir = Path(root_dir)
 
         # iter through `root_dir` files
-        for file in root_dir.rglob('*'):
+        for file in root_dir.rglob("*"):
 
             if not file.is_file():
                 continue
@@ -50,7 +61,7 @@ async def create_modals(
     error_callback: Callable[[Path, Exception], None],
     *,
     sem_limit: int = os.cpu_count() or 4,
-) -> list[tuple[Video, VideoServer]]:
+) -> list[VideosDataBase]:
 
     sem = asyncio.Semaphore(sem_limit)
 
@@ -73,17 +84,16 @@ async def create_modals(
 
 def add_modals_to_db(
     session: Session,
-    modals: list[tuple[Video, VideoServer]],
+    modals: list[VideosDataBase],
     progress_callback: Callable[[], None],
-    error_callback: Callable[[tuple[Video, VideoServer], Exception], None],
+    error_callback: Callable[[VideosDataBase, Exception], None],
 ):
-    for vid, vid_server in modals:
+    for vid in modals:
         try:
             session.add(vid)
-            session.add(vid_server)
             progress_callback()
         except Exception as e:
-            error_callback((vid, vid_server), e)
+            error_callback(vid, e)
 
 
 async def make_data(session: Session):
@@ -133,8 +143,9 @@ async def make_data(session: Session):
             session,
             results,
             lambda: progress_bar.advance(add_video_task),
-            lambda _, e: progress_bar.console.log("Error while inserting to db:", e)
-            or progress_bar.console.log(_[1]),
+            lambda v, e: progress_bar.console.print(
+                "Error while inserting to db:", e, v
+            ),
         )
 
         session.commit()
@@ -158,7 +169,7 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
             )
 
             # Delete all thumbnails
-            all_thumbs = session.exec(select(VideoServer)).all()
+            all_thumbs = session.exec(select(VideosDataBase)).all()
 
             # Add task to progress_bar
             thumb_remove_task = progress_bar.add_task(
@@ -166,20 +177,15 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
             )
 
             for entry in all_thumbs:
-                if entry.thumb_exists():
-                    try:
-                        entry.delete_thumb()
-                    except Exception as e:
-                        progress_bar.console.log(
-                            f"[red]Failed to delete thumbnail [italic]{entry.thumbnail_path}[/italic][/red]: {e}"
-                        )
+                try:
+                    entry.delete_thumb()
+                except Exception as e:
+                    progress_bar.console.print(
+                        f"Unable to delete thumb: {entry.thumbnail_path}", e
+                    )
 
                 # Update the progress bar's 'n'
                 progress_bar.advance(thumb_remove_task)
-                session.delete(entry)
-
-            # Delete all DB entries
-            for entry in session.exec(select(Video)).all():
                 session.delete(entry)
 
             session.commit()
@@ -187,7 +193,7 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
 
         else:
             # Partial reload: remove stale or orphaned entries only
-            prev_db_data = session.exec(select(VideoServer)).all()
+            prev_db_data = session.exec(select(VideosDataBase)).all()
             filename_exists = []
 
             for data_old in prev_db_data:
@@ -199,21 +205,16 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
                         vid_path.is_relative_to(_root_path) for _root_path in ROOT_DIRS
                     )
                 ):
-                    if data_old.thumb_exists():
+                    try:
                         data_old.delete_thumb()
+                    except:
+                        pass
 
                     progress_bar.print(
                         f"[red bold]File Removed: {vid_path.stem} [!Exist][/bold red]"
                     )
 
-                    session.delete(data_old)  # Delete from "VideoServer" db
-                    # Delete the related video from "videos" db
-                    video_db_entries = session.exec(
-                        select(Video).where(Video.id == data_old.video_id)
-                    ).all()
-                    if video_db_entries:
-                        for video_db_entry in video_db_entries:
-                            session.delete(video_db_entry)
+                    session.delete(data_old)
                     continue
 
                 filename_exists.append(vid_path.stem)
@@ -256,8 +257,9 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
             session,
             results,
             lambda: progress_bar.advance(add_video_task),
-            lambda _, e: progress_bar.console.print("Error while inserting to db:", e)
-            or progress_bar.console.print(_[1]),
+            lambda v, e: progress_bar.console.print(
+                "Error while inserting to db:", e, v
+            ),
         )
 
         session.commit()

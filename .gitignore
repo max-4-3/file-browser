@@ -8,10 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Stupid files
 *.png
 *.jpg
 *.json
 *.webp
-*.db.*
+*.db
 .thumbs/*
 temp*
+data/*

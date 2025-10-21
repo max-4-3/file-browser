@@ -1,6 +1,6 @@
 from fastapi import Header
-import json
-from src.models import VideoServer, Video, DeletedVideo
+from src.models import DeletedVideo, VideoResponse, VideosDataBase,DeletedVideoResponse
+from src.utils.helpers import convert_db_to_response
 
 from src.api import (
     router,
@@ -15,28 +15,35 @@ from src.api import (
     FileNotFoundOnServer,
 )
 
+@router.get("/deleted")
+async def get_deleted(video_id: str | None = None, session: Session = Depends(deleted_video_session.get_session)):
+    if video_id:
+        videos = session.exec(select(DeletedVideo).where(DeletedVideo.id == video_id)).all()
+    else:
+        videos = session.exec(select(DeletedVideo)).all()
+
+    return {"results": [DeletedVideoResponse(**de.model_dump()) for de in videos]}
+
 
 @router.get("/video")
 async def get_video(
     video_id: str, session: Session = Depends(normal_session.get_session)
 ):
 
-    video_server: VideoServer | None = session.exec(
-        select(VideoServer).where(VideoServer.video_id == video_id)
+    video = session.exec(
+        select(VideosDataBase).where(VideosDataBase.id == video_id)
     ).first()
 
-    if not video_server:
+    if not video:
         raise VideoInfoNotFound(video_id)
 
-    if not video_server.exists():
+    if not video.exist():
         raise FileNotFoundOnServer()
 
     response = FileResponse(
-        video_server.video_path,
+        video.video_path,
         filename=(
-            video_server.video.title + ".mp4"
-            if video_server.video
-            else "Untitled_video.mp4"
+            video.title + ".mp4"
         ),
         media_type="video/mp4",
     )
@@ -54,57 +61,39 @@ async def delete_video(
     if user != "maxim":
         raise HTTPException(401, "Unauthorized")
 
-    video: Video | None = session.exec(
-        select(Video).where(Video.id == video_id)
+    video = session.exec(
+        select(VideosDataBase).where(VideosDataBase.id == video_id)
     ).first()
 
     if not video:
         raise VideoInfoNotFound(video_id)
 
-    video_server: VideoServer | None = session.exec(
-        select(VideoServer).where(VideoServer.video_id == video.id)
-    ).first()
-
-    if not video_server:
-        raise VideoInfoNotFound(f"{video_id} (2)")
-
     video_data = {
-        **(video_server.model_dump()),
-        "related_video": (
-            video_server.video.model_dump() if video_server.video else None
-        ),
+        **(convert_db_to_response(video).model_dump())
     }
 
-    if not video_server.exists():
+    if not video.exist():
         return video_data
 
-    # Delete from database
-    session.delete(video)
-    session.delete(video_server)
 
     # Delete locally
-    video_server.delete()
-    video_server.delete_thumb()
+    video.delete()
+    video.delete_thumb()
 
     # Adds to deleted_videos_database
     second_session = next(deleted_video_session.get_session())
     second_session.add(
         DeletedVideo(
-            id=video_data.get(
-                "video_id", "No Valid Info, Check 'extra info'."
-            ),
-            title=video_data.get("related_video", {}).get(
-                "title", "No Valid Info, Check 'extra info'."
-            ),
-            filesize=video_data.get("related_video", {}).get(
-                "filesize", -1
-            ),
-            video_path=video_data.get(
-                "video_path", "No Valid Info, Check 'extra info'."
-            ),
-            extra_info=json.dumps(video_data) if video_data else "{}",
+            id=video.id,
+            title=video.title,
+            video_path=video.video_path,
+            duration=video.duration,
+            filesize=video.filesize
         )
     )
+
+    # Delete from database
+    session.delete(video)
 
     # Commit Changes to databases
     second_session.commit()
@@ -114,22 +103,23 @@ async def delete_video(
 
 
 @router.get("/videos")
-async def get_videos(session: Session = Depends(normal_session.get_session)):
-    return {"videos": session.exec(select(Video)).all()}
+async def get_videos(extras: bool = False, session: Session = Depends(normal_session.get_session)):
+    videos = session.exec(select(VideosDataBase)).all()
+    return {"videos": [convert_db_to_response(d, extras) for d in videos]}
 
 
-@router.get("/stats", response_model=Video)
+@router.get("/stats", response_model=VideoResponse)
 async def get_stat(
-    video_id: str, session: Session = Depends(normal_session.get_session)
+    video_id: str, extras: bool = False, session: Session = Depends(normal_session.get_session)
 ):
-    video_server: VideoServer | None = session.exec(
-        select(VideoServer).where(VideoServer.video_id == video_id)
+    video_server = session.exec(
+        select(VideosDataBase).where(VideosDataBase.id == video_id)
     ).first()
 
     if not video_server:
         raise VideoInfoNotFound(video_id)
 
-    if not video_server.exists():
+    if not video_server.exist():
         raise FileNotFoundOnServer()
 
-    return video_server.video
+    return convert_db_to_response(video_server, extras)
