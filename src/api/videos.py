@@ -69,16 +69,11 @@ async def delete_video(
         raise VideoInfoNotFound(video_id)
 
     video_data = {
-        **(convert_db_to_response(video).model_dump())
+        **(convert_db_to_response(video, True).model_dump())
     }
 
     if not video.exist():
         return video_data
-
-
-    # Delete locally
-    video.delete()
-    video.delete_thumb()
 
     # Adds to deleted_videos_database
     second_session = next(deleted_video_session.get_session())
@@ -88,7 +83,8 @@ async def delete_video(
             title=video.title,
             video_path=video.video_path,
             duration=video.duration,
-            filesize=video.filesize
+            filesize=video.filesize,
+            extras=video.extras
         )
     )
 
@@ -98,6 +94,10 @@ async def delete_video(
     # Commit Changes to databases
     second_session.commit()
     session.commit()
+
+    # Delete locally
+    video.delete()
+    video.delete_thumb()
 
     return video_data
 

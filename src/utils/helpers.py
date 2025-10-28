@@ -120,6 +120,7 @@ async def make_data(session: Session):
             is_file_valid, lambda _: progress_bar.advance(video_discovery_task)
         )
         progress_bar.update(video_discovery_task, total=len(files_to_add))
+        progress_bar.stop_task(video_discovery_task)
 
         # Early exit
         if not files_to_add:
@@ -132,8 +133,9 @@ async def make_data(session: Session):
         results = await create_modals(
             files_to_add,
             lambda: progress_bar.advance(video_generation_task),
-            progress_bar.console.log,
+            progress_bar.console.print,
         )
+        progress_bar.stop_task(video_discovery_task)
 
         # Add generated video to database
         add_video_task = progress_bar.add_task(
@@ -147,6 +149,7 @@ async def make_data(session: Session):
                 "Error while inserting to db:", e, v
             ),
         )
+        progress_bar.stop_task(add_video_task)
 
         session.commit()
         return True
@@ -188,6 +191,7 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
                 progress_bar.advance(thumb_remove_task)
                 session.delete(entry)
 
+            progress_bar.stop_task(thumb_remove_task)
             session.commit()
             filename_exists = []  # We want to re-add everything
 
@@ -235,6 +239,7 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
             is_file_valid, lambda _: progress_bar.advance(discover_file_task)
         )
         progress_bar.update(discover_file_task, total=len(new_files))
+        progress_bar.stop_task(discover_file_task)
 
         if not new_files:
             return True
@@ -246,12 +251,13 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
         results = await create_modals(
             new_files,
             lambda: progress_bar.advance(video_info_task),
-            progress_bar.console.log,
+            progress_bar.console.print,
         )
         progress_bar.advance(video_info_task, len(new_files) - len(results))
+        progress_bar.stop_task(video_info_task)
 
         add_video_task = progress_bar.add_task(
-            "[green]Adding[/green]", total=len(results)
+            "[green]Inserting in db[/green]", total=len(results)
         )
         add_modals_to_db(
             session,
@@ -261,6 +267,7 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
                 "Error while inserting to db:", e, v
             ),
         )
+        progress_bar.stop_task(add_video_task)
 
         session.commit()
     return True
