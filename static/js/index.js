@@ -18,17 +18,26 @@ let prevBatch = [];
 const batchSize = 10;
 const videoGrid = document.querySelector("#videoGrid");
 const renderVideosObserver = new IntersectionObserver(renderNextBatch, {
-	rootMargin: "100px"
+	rootMargin: "100px",
 });
+let currentOrientation = "All";
 
-async function fetchVideos(apiEndpoint = "/api/videos") {
+async function fetchVideos(apiEndpoint = "/api/videos?extras=true") {
 	try {
 		const res = await fetch(apiEndpoint);
 		if (!res.ok) {
 			throw new Error("Request Wasn't Ok!");
 		}
 		const data = await res.json();
-		return data.videos;
+		console.groupCollapsed("Video analysis...")
+		const videos = data.videos.map((vid) => {
+			vid.quality = MainModule.determineQuality(vid); // "4K" | "2K" | "FHD" | "HD" | "SD"
+			vid.orientation = MainModule.determineOrientation(vid); // "16:9" | "9:16" | "1:1"
+			vid.skip = false;
+			return vid;
+		});
+		console.groupEnd();
+		return videos;
 	} catch (error) {
 		console.error("Fetch videos error:", error);
 		return [];
@@ -82,9 +91,15 @@ function prepareVideos() {
 		}
 
 		function convertDurationToInt(value) {
+			if (Number.isFinite(value)) return value;
 			const [minutes, seconds] = String(value).split(":");
-			return minutes * 60 + seconds;
+			return Number(minutes) * 60 + Number(seconds);
 		}
+
+		const aFav = MainModule.isFavourite(a.id);
+		const bFav = MainModule.isFavourite(b.id);
+
+		if (aFav !== bFav) return aFav ? -1 : 1;
 
 		if (sortingState.biggerFirst) {
 			return differenceOfProperty("filesize", b, a);
@@ -125,9 +140,15 @@ function renderVideos() {
 	// Rendering first batch
 	const newBatch = [...videos].splice(prevBatch.length, batchSize);
 	newBatch.forEach((entry) => {
-		videoGrid.appendChild(
-			MainModule.renderVideo({ video: entry, deleteBtnCallback: deleteVideo }),
-		);
+		if (entry.skip) return;
+
+		const renderedVideo = MainModule.renderVideo({
+			video: entry,
+			deleteBtnCallback: deleteVideo,
+		});
+		renderedVideo.dataset.quality = entry.quality;
+		renderedVideo.dataset.orientation = entry.orientation;
+		videoGrid.appendChild(renderedVideo);
 	});
 
 	// First
@@ -142,12 +163,18 @@ function renderNextBatch(observerEntries) {
 		const nextBatch = [...videos].splice(prevBatch.length, batchSize);
 
 		// Create new cards
-		const videoCards = nextBatch.map((videoData) =>
-			MainModule.renderVideo({
+		const videoCards = nextBatch.map((videoData) => {
+			if (videoData.skip) return;
+			const renderedVideo = MainModule.renderVideo({
 				video: videoData,
 				deleteBtnCallback: deleteVideo,
-			}),
-		);
+			});
+			renderedVideo.dataset.quality = videoData.quality;
+			renderedVideo.dataset.orientation = videoData.orientation;
+			videoGrid.appendChild(renderedVideo);
+			return renderedVideo;
+		}).filter(Boolean);
+		
 
 		// Append newly created video card to grid
 		videoCards.forEach((v) => {
@@ -158,6 +185,26 @@ function renderNextBatch(observerEntries) {
 		prevBatch.push(...nextBatch);
 		renderVideosObserver.observe(videoGrid.lastChild); // Observer the last element
 	});
+}
+
+function toggleOrientation(event) {
+	const orientations = ["All", "16:9", "9:16", "1:1"];
+	const currentIdx = orientations.indexOf(currentOrientation);
+	const nextIdx = (currentIdx + 1) % orientations.length; // cycles
+
+	currentOrientation = orientations[nextIdx];
+	const selected = currentOrientation.toLowerCase();
+
+	videos.forEach(vid => {
+		if (selected === "all") {
+			vid.skip = false;
+			return;
+		}
+		vid.skip = vid.orientation.toLowerCase() !== selected;
+	})
+
+	event.target.textContent = currentOrientation.trim();
+	renderVideos();
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -256,38 +303,46 @@ document.addEventListener("DOMContentLoaded", async () => {
 		let timeout;
 		return function (...args) {
 			clearTimeout(timeout);
-			timeout = setTimeout(() => func.apply(this, args), delay)
-		}
+			timeout = setTimeout(() => func.apply(this, args), delay);
+		};
 	}
 
-	searchInput.addEventListener("input", debounce(() => {
-		const searchTerm = searchInput.value.trim();
-		searchResults.innerHTML = ""; // clear before rendering new results
+	searchInput.addEventListener(
+		"input",
+		debounce(() => {
+			const searchTerm = searchInput.value.trim();
+			searchResults.innerHTML = ""; // clear before rendering new results
 
-		if (!searchTerm) {
-			videoGrid.style.display = "";
-			searchResults.classList.add("empty");
-			return;
-		}
+			if (!searchTerm) {
+				videoGrid.style.display = "";
+				searchResults.classList.add("empty");
+				return;
+			}
 
-		const results = videos.filter((v) =>
-			v.title.toLowerCase().includes(searchTerm.toLowerCase()),
-		);
-
-		if (results.length > 0) {
-			searchResults.classList.remove("empty");
-			videoGrid.style.display = "none";
-
-			searchResults.append(
-				...results.map((d) => MainModule.renderVideo({ video: d })),
+			const results = videos.filter((v) =>
+				v.title.toLowerCase().includes(searchTerm.toLowerCase()),
 			);
-		} else {
-			searchResults.classList.add("empty");
-			videoGrid.style.display = "none";
-		}
-	}, 650));
+
+			if (results.length > 0) {
+				searchResults.classList.remove("empty");
+				videoGrid.style.display = "none";
+
+				searchResults.append(
+					...results.map((d) => MainModule.renderVideo({ video: d })),
+				);
+			} else {
+				searchResults.classList.add("empty");
+				videoGrid.style.display = "none";
+			}
+		}, 650),
+	);
 
 	// UserLogin
 	const userLoginButton = document.querySelector("#userBtn");
-	userLoginButton.addEventListener("click", loginUser)
+	userLoginButton.addEventListener("click", loginUser);
+
+	// Orientation Switcher
+	document
+		.querySelector("#orientation-btn")
+		.addEventListener("click", toggleOrientation);
 });

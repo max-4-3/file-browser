@@ -14,7 +14,7 @@ wheels/
 *.jpg
 *.json
 *.webp
-*.db
+**/*.db
 .thumbs/*
 temp*
 data/*
