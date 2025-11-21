@@ -1,11 +1,11 @@
 import {
 	MainModule,
-	saveSortingConfig,
-	sortingState as getSortingState,
 	showStatsBottom,
 	setUserName,
 	getUserName,
 	loginUser,
+	applyFilters,
+	getSortingState,
 } from "./main.js";
 
 // --- Global DOM Element References ---
@@ -21,7 +21,6 @@ const videoGrid = document.getElementById("videoGrid");
 
 // --- Global / Module variables ---
 let videoId = new URLSearchParams(window.location.search).get("id");
-let sortingState = getSortingState();
 let videos = [];
 const isAndroid = (() => {
 	const ua = navigator.userAgent || navigator.vendor || window.opera;
@@ -36,9 +35,10 @@ let player = null; // Plyr instance or null
 let plyrTimeoutId = null;
 let playerInitialized = false;
 let currentVideoData = null;
-let currentOrientation = "All";
 let useNative =
 	String(localStorage.getItem("playerType") || "").toLowerCase() === "native";
+let lastSelectedSort = null;
+let sortingState = getSortingState();
 
 // Keyboard handler guard so we don't add multiple identical listeners
 let keyboardShortcutsBound = false;
@@ -483,7 +483,7 @@ const PlayerModule = (() => {
 		// disable dblclick fullscreen toggling by default
 		const v = document.querySelector("video");
 		if (v) {
-			v.onloadedmetadata = function () {
+			v.onloadedmetadata = function() {
 				scrollTo(0, 0);
 				this.addEventListener("dblclick", (e) => {
 					e.preventDefault();
@@ -546,93 +546,43 @@ function deleteVideo(videoData, cardElement) {
 
 /* -------------------- Sorting / Preparing list -------------------- */
 function prepareVideos() {
-	// shallow copy so original `videos` is not mutated by sort
-	const localVideos = [...videos];
-
-	localVideos.sort((a, b) => {
-		// helpers
-		const differenceOfProperty = (
-			propName,
-			firstElem,
-			secondElem,
-			parseFunc = null,
-		) => {
-			let valA = firstElem[propName];
-			let valB = secondElem[propName];
-			if (parseFunc) {
-				valA = parseFunc(valA);
-				valB = parseFunc(valB);
-			}
-			return valA - valB;
-		};
-
-		const convertDurationToInt = (value) => {
-			if (Number.isFinite(value)) return value;
-			const [minutes = 0, seconds = 0] = String(value).split(":");
-			return Number(minutes) * 60 + Number(seconds);
-		};
-
-		// favorites first
-		const aFav = MainModule.isFavourite(a.id);
-		const bFav = MainModule.isFavourite(b.id);
-		if (aFav !== bFav) return aFav ? -1 : 1;
-
-		// sorting by state
-		if (sortingState.biggerFirst) {
-			return differenceOfProperty("filesize", b, a);
-		} else if (sortingState.smallerFirst) {
-			return differenceOfProperty("filesize", a, b);
-		} else if (sortingState.newerFirst) {
-			return differenceOfProperty("modified_time", b, a);
-		} else if (sortingState.olderFirst) {
-			return differenceOfProperty("modified_time", a, b);
-		} else if (sortingState.longerFirst) {
-			return differenceOfProperty("duration", b, a, convertDurationToInt);
-		} else if (sortingState.shorterFirst) {
-			return differenceOfProperty("duration", a, b, convertDurationToInt);
-		}
-		return 0;
-	});
-
-	return localVideos;
+	videos = applyFilters(sortingState, videos);
+	return videos;
 }
 
 /* -------------------- Rendering -------------------- */
 function renderVideos() {
-	// Reset
+	// Reset DOM and scroll tracking
 	renderVideoObserver.disconnect();
 	videoGrid.innerHTML = "";
 	prevBatch = [];
 
-	// prepare list according to current sorting
-	const prepared = prepareVideos();
+	// 1. Get the current, filtered/sorted list of videos
+	videos = prepareVideos();
+	const videosToRender = videos.filter((v) => !v.skip || v.id === videoId);
 
-	// update global videos reference to prepared order (we'll keep base data in videos though)
-	// (we intentionally keep `videos` as source-of-truth; prepared is ordered view)
-	// Render first batch
-	const newBatch = prepared.slice(0, batchSize);
+	if (videosToRender.length === 0) {
+		console.warn("No videos found matching criteria.");
+		return;
+	}
 
-	const videoCards = newBatch
-		.map((videoData) => {
-			if (videoData.skip) return null;
-			return MainModule.renderVideo({
-				video: videoData,
-				deleteBtnCallback: deleteVideo,
-				thumbnailCallback: () => { },
-			});
-		})
-		.filter(Boolean);
+	// 2. Get the first batch using slice (from index 0, up to batchSize)
+	const newBatch = videosToRender.slice(0, batchSize);
 
-	// Append cards
-	videoCards.forEach((vidCard, idx) => {
-		const vidData = newBatch[idx];
-		if (!vidData) return;
-		if (vidData.id === videoId) return; // don't re-add current playing video in grid
+	// 3. Render the batch
+	newBatch.forEach((entry) => {
+		const renderedVideo = MainModule.renderVideo({
+			video: entry,
+			deleteBtnCallback: deleteVideo,
+			thumbnailCallback: () => { },
+		});
+		renderedVideo.dataset.quality = entry.quality;
+		renderedVideo.dataset.orientation = entry.orientation;
 
-		const img = vidCard.querySelector("img");
+		const img = renderedVideo.querySelector("img");
 		if (img) {
 			img.addEventListener("click", async () => {
-				const newVideoId = vidData.id;
+				const newVideoId = entry.id;
 				if (newVideoId && newVideoId !== videoId) {
 					videoId = newVideoId;
 					const newUrl = new URL(window.location.href);
@@ -646,54 +596,77 @@ function renderVideos() {
 			});
 		}
 
-		vidCard.addEventListener("mousedown", (e) => {
+		renderedVideo.addEventListener("mousedown", (e) => {
 			if (e.button === 1) {
 				e.preventDefault();
-				window.open(`/watch?id=${vidData.id}`);
+				window.open(`/watch?id=${entry.id}`);
 			}
 		});
 
-		videoGrid.appendChild(vidCard);
+		videoGrid.appendChild(renderedVideo);
 	});
 
+	// 4. Update state and observer
 	prevBatch.push(...newBatch);
-	// observe last child only if exists
-	if (videoGrid.lastElementChild)
-		renderVideoObserver.observe(videoGrid.lastElementChild);
+
+	// Only observe if there are more videos left to load
+	if (videosToRender.length > prevBatch.length && videoGrid.lastChild) {
+		renderVideoObserver.observe(videoGrid.lastChild);
+	}
 }
 
-function renderNextBatch(entries) {
-	entries.forEach((entry) => {
+function renderNextBatch(observerEntries) {
+	observerEntries.forEach((entry) => {
 		if (!entry.isIntersecting) return;
-
 		renderVideoObserver.unobserve(entry.target);
 
-		const prepared = prepareVideos();
-		const nextBatch = prepared.slice(
-			prevBatch.length,
-			prevBatch.length + batchSize,
-		);
+		// Find the index in the global 'videos' array of the last video in prevBatch.
+		const lastRenderedVideo = prevBatch[prevBatch.length - 1];
+		const lastIndex = videos.findIndex((v) => v.id === lastRenderedVideo.id);
 
-		const videoCards = nextBatch
-			.map((videoData) =>
-				!videoData.skip
-					? MainModule.renderVideo({
-						video: videoData,
-						deleteBtnCallback: deleteVideo,
-						thumbnailCallback: () => { },
-					})
-					: null,
-			)
-			.filter(Boolean);
+		if (lastIndex === -1) {
+			console.error("Could not find last rendered video in global array.");
+			return;
+		}
 
-		videoCards.forEach((vidCard, idx) => {
-			const vidData = nextBatch[idx];
-			if (!vidData) return;
+		const startIndex = lastIndex + 1; // Start searching from the next index
 
-			const img = vidCard.querySelector("img");
+		let renderedCount = 0;
+		const newBatch = [];
+
+		// Iterate through the global 'videos' array starting from the element AFTER the last rendered one
+		for (
+			let i = startIndex;
+			i < videos.length && renderedCount < batchSize;
+			i++
+		) {
+			const vid = videos[i];
+
+			// Only include non-skipped videos until the batch is full
+			if (!vid.skip) {
+				newBatch.push(vid);
+				renderedCount++;
+			}
+		}
+
+		if (newBatch.length === 0) {
+			console.log("No more un-skipped videos to load in the remaining list.");
+			return;
+		}
+
+		// Render the batch
+		newBatch.forEach((vid) => {
+			const renderedVideo = MainModule.renderVideo({
+				video: vid,
+				deleteBtnCallback: deleteVideo,
+				thumbnailCallback: () => {},
+			});
+			renderedVideo.dataset.quality = vid.quality;
+			renderedVideo.dataset.orientation = vid.orientation;
+			const img = renderedVideo.querySelector("img");
 			if (img) {
 				img.addEventListener("click", async () => {
-					const newVideoId = vidData.id;
+					const newVideoId = vid.id;
 					if (newVideoId && newVideoId !== videoId) {
 						videoId = newVideoId;
 						const newUrl = new URL(window.location.href);
@@ -707,28 +680,63 @@ function renderNextBatch(entries) {
 				});
 			}
 
-			vidCard.addEventListener("mousedown", (e) => {
+			renderedVideo.addEventListener("mousedown", (e) => {
 				if (e.button === 1) {
 					e.preventDefault();
-					window.open(`/watch?id=${vidData.id}`);
+					window.open(`/watch?id=${vid.id}`);
 				}
 			});
-
-			videoGrid.appendChild(vidCard);
+			videoGrid.appendChild(renderedVideo);
 		});
 
-		prevBatch.push(...nextBatch);
-		if (videoGrid.lastElementChild)
-			renderVideoObserver.observe(videoGrid.lastElementChild);
+		// Update state and set up observer
+		prevBatch.push(...newBatch);
+		if (videoGrid.lastChild) {
+			renderVideoObserver.observe(videoGrid.lastChild);
+		}
 	});
 }
 
+
+
 /* -------------------- Sort state setter -------------------- */
-function setSortOrder(order) {
-	Object.keys(sortingState).forEach((key) => {
-		sortingState[key] = key === order;
+function applySorting(filters) {
+	videos = applyFilters(filters, videos);
+	sortingState = getSortingState();
+	renderVideos();
+}
+
+function initilizeFilterDropdown() {
+	const favFirst = document.querySelector('#fav-first');
+	const sortOrder = document.querySelector("#sort-order");
+	const sortBy = document.querySelector("#sortBy");
+	const sortSelected = document.querySelector("#sort-selected");
+	const sortOptions = document.querySelectorAll(".sort-option");
+
+	favFirst.checked = sortingState.favFirst;
+	sortOrder.checked = sortingState.sortAsc;
+	sortBy.value = sortingState.sortBy;
+	sortOptions.forEach((el) => {
+		el.classList.contains("hidden") && el.classList.remove("hidden")
+		if (el.dataset.sort === sortBy.value) {
+			el.classList.add("hidden");
+			sortSelected.textContent = el.textContent;
+			sortSelected.dataset.sort = el.dataset.sort;
+		}
 	});
-	saveSortingConfig(sortingState);
+
+	document.querySelectorAll(`[name="orientation"]`).forEach((el) => {
+		el.checked = false;
+		if (el.value.toLowerCase() === sortingState.orientation.toLowerCase()) {
+			el.checked = true;
+		}
+	});
+	document.querySelectorAll(`[name="quality"]`).forEach((el) => {
+		el.checked = false;
+		if (el.value.toLowerCase() === sortingState.quality.toLowerCase()) {
+			el.checked = true;
+		}
+	});
 }
 
 /* -------------------- Player info fetcher -------------------- */
@@ -751,27 +759,6 @@ function setVideoInfoAndPageTitle() {
 		.catch((error) => {
 			console.error("setVideoInfo error:", error);
 		});
-}
-
-/* -------------------- Orientation toggle -------------------- */
-function toggleOrientation(event) {
-	const orientations = ["All", "16:9", "9:16", "1:1"];
-	const currentIdx = orientations.indexOf(currentOrientation);
-	const nextIdx = (currentIdx + 1) % orientations.length;
-	currentOrientation = orientations[nextIdx];
-
-	const selected = currentOrientation.toLowerCase();
-	videos.forEach((vid) => {
-		if (selected === "all") {
-			vid.skip = false;
-			return;
-		}
-		// defensive: ensure vid.orientation exists
-		vid.skip = String(vid.orientation || "").toLowerCase() !== selected;
-	});
-
-	if (event?.target) event.target.textContent = currentOrientation.trim();
-	renderVideos();
 }
 
 /* -------------------- DOMContentLoaded -------------------- */
@@ -819,75 +806,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 		else vidCountEl.remove();
 	}
 
-	// Filter DropDown
-	const showDropDownBtn = document.querySelector("#showFilterDropDownButton");
-	const filterDropDownOptions = document.querySelector(
-		"#filterDropDownOptions",
-	);
-	showDropDownBtn?.addEventListener("click", () =>
-		filterDropDownOptions?.classList.toggle("show"),
-	);
-
-	// initialize filter option handlers (sorting only - keep existing behaviour)
-	document
-		.querySelectorAll("#filterDropDownOptions .option")
-		.forEach((elem) => {
-			const sortKey = String(elem.dataset.sortOrder || "");
-			if (sortKey && sortingState[sortKey]) elem.classList.add("selected");
-
-			elem.addEventListener("click", (e) => {
-				// only clear selection in same category (data attribute present)
-				const datasetKeys = Object.keys(elem.dataset || {});
-				if (datasetKeys.length) {
-					const firstKey = datasetKeys[0]; // e.g. sortOrder, orientation, quality
-					document
-						.querySelectorAll(`#filterDropDownOptions [data-${firstKey}]`)
-						.forEach((o) => o.classList.remove("selected"));
-				} else {
-					// fallback - clear all
-					document
-						.querySelectorAll("#filterDropDownOptions .option")
-						.forEach((o) => o.classList.remove("selected"));
-				}
-
-				elem.classList.add("selected");
-
-				// handle sorting only (existing flow). If more filters added, handle them here.
-				if (elem.dataset.sortOrder) {
-					setSortOrder(elem.dataset.sortOrder);
-					renderVideos();
-				}
-
-				// orientation & quality handling were discussed earlier — you can call applyOrientationFilter / applyQualityFilter here
-				if (elem.dataset.orientation) {
-					// Simple in-place filter: set skip flags
-					const orientation = elem.dataset.orientation;
-					if (orientation === "all") videos.forEach((v) => (v.skip = false));
-					else
-						videos.forEach(
-							(v) =>
-							(v.skip =
-								String(v.orientation || "").toLowerCase() !==
-								orientation.toLowerCase()),
-						);
-					renderVideos();
-				}
-
-				if (elem.dataset.quality) {
-					const quality = elem.dataset.quality;
-					if (quality === "all") videos.forEach((v) => (v.skip = false));
-					else
-						videos.forEach(
-							(v) =>
-							(v.skip =
-								String(v.quality || "").toLowerCase() !==
-								quality.toLowerCase()),
-						);
-					renderVideos();
-				}
-			});
-		});
-
 	showStatsBottom(videos);
 
 	// Search UI
@@ -909,7 +827,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 		function debounce(func, delay) {
 			let timeout;
-			return function (...args) {
+			return function(...args) {
 				clearTimeout(timeout);
 				timeout = setTimeout(() => func.apply(this, args), delay);
 			};
@@ -951,8 +869,65 @@ document.addEventListener("DOMContentLoaded", async () => {
 	// User button
 	document.querySelector("#userBtn")?.addEventListener("click", loginUser);
 
-	// Orientation switcher
-	document
-		.querySelector("#orientation-btn")
-		?.addEventListener("click", toggleOrientation);
+	// Filter dropdown
+	const filterDropdownToggle = document.querySelector(
+		"#main-filter-toggle-btn",
+	);
+	const filterDropdown = document.querySelector("#filters-form");
+	const sortSelect = document.querySelector(".sort-select");
+	const sortSelected = document.getElementById("sort-selected");
+	const sortOptions = document.querySelectorAll(".sort-option");
+	const sortByInput = document.getElementById("sortBy"); // toggle dropdown
+
+	filterDropdownToggle.addEventListener("click", () => {
+		filterDropdownToggle.classList.toggle("active");
+		filterDropdown.classList.toggle("show");
+	});
+
+	sortSelected.addEventListener("click", () => {
+		sortSelect.classList.toggle("open");
+	});
+
+	sortOptions.forEach((option) => {
+		if (option.dataset.sort === "date") {
+			option.classList.add("hidden");
+			lastSelectedSort = option;
+		}
+		option.addEventListener("click", () => {
+			const label = option.textContent;
+			const value = option.dataset.sort; // Update button + hidden input
+
+			sortSelected.textContent = label;
+			sortByInput.value = value; // Remove "hidden" from the last selected option
+
+			if (lastSelectedSort) {
+				lastSelectedSort.classList.remove("hidden");
+			} // Hide the currently selected one
+
+			option.classList.add("hidden");
+			lastSelectedSort = option; // Close dropdown
+
+			sortSelect.classList.remove("open");
+		});
+	}); // --- Main Form Submit Handler ---
+
+	document.getElementById("filters-form").addEventListener("submit", (e) => {
+		e.preventDefault();
+
+		const form = new FormData(e.target);
+
+		const data = {
+			favFirst: form.get("favFirst") === "on",
+			sortBy: form.get("sortBy"),
+			sortAsc: form.get("sortAsc") === "on",
+			orientation: form.get("orientation"),
+			quality: form.get("quality"),
+		};
+
+		filterDropdown.classList.remove("show");
+		filterDropdownToggle.classList.remove("active");
+		applySorting(data);
+	});
+
+	initilizeFilterDropdown();
 });

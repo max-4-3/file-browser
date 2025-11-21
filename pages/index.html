@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -18,36 +19,81 @@
 		</button>
 
 		<div class="buttons">
-			<button class="cool-button active" id="orientation-btn">All</button>
 			<button class="cool-button" id="search-button"
 				onclick="document.querySelector('#searchVideos').style.display = document.querySelector('#searchVideos').style.display === 'none' ? 'flex' : 'none'">
 				<i class="fa-solid fa-search"></i>
 			</button>
-			<div id="filterDropDown" class="filter-dropdown">
-				<button id="showFilterDropDownButton" class="title cool-button">
-					<i class="fa-solid fa-filter"></i>
-				</button>
-				<div id="filterDropDownOptions" class="options-container">
-					<div class="option" data-sort-order="newerFirst">
-						Newer
+			<button id="main-filter-toggle-btn" class="cool-button" type="button"><i
+					class="fa-solid fa-filter"></i></button>
+			<form id="filters-form" class="filter-dropdown">
+				<!-- Sort -->
+				<div class="filter-section sort-section">
+					<label class="sort-order">
+						<input type="checkbox" id="sort-order" name="sortAsc" />
+						Ascending
+					</label>
+
+					<div class="sort-select">
+						<button class="sort-selected cool-button" id="sort-selected" type="button">Date</button>
+
+						<ul class="sort-options">
+							<li class="sort-option" data-sort="date">Date</li>
+							<li class="sort-option" data-sort="filesize">Size</li>
+							<li class="sort-option" data-sort="duration">Duration</li>
+						</ul>
+
+						<!-- Hidden field to store selected sort -->
+						<input type="hidden" name="sortBy" id="sortBy" value="date" />
 					</div>
-					<div class="option" data-sort-order="olderFirst">
-						Older
-					</div>
-					<div class="option" data-sort-order="biggerFirst">
-						Bigger
-					</div>
-					<div class="option" data-sort-order="smallerFirst">
-						Smaller
-					</div>
-					<div class="option" data-sort-order="longerFirst">
-						Longer
-					</div>
-					<div class="option" data-sort-order="shorterFirst">
-						Shorter
-					</div>
+
+					<label class="sort-order">
+						<input type="checkbox" id="fav-first" name="favFirst" />
+						Favourites 1st
+					</label>
 				</div>
-			</div>
+
+				<!-- Orientation -->
+				<div class="filter-section orientation-section">
+					<label>
+						<input type="radio" name="orientation" value="all" checked>
+						All
+					</label>
+					<label>
+						<input type="radio" name="orientation" value="landscape">
+						Landscape
+					</label>
+					<label>
+						<input type="radio" name="orientation" value="portrait">
+						Portrait
+					</label>
+				</div>
+
+				<!-- Quality -->
+				<div class="filter-section quality-section">
+					<label>
+						<input type="radio" name="quality" value="all" checked>
+						All
+					</label>
+					<label>
+						<input type="radio" name="quality" value="hd">
+						HD
+					</label>
+					<label>
+						<input type="radio" name="quality" value="fhd">
+						FHD
+					</label>
+					<label>
+						<input type="radio" name="quality" value="2k">
+						2K
+					</label>
+					<label>
+						<input type="radio" name="quality" value="4k">
+						4K
+					</label>
+				</div>
+
+				<button type="submit" class="filter-toggle-btn cool-button">Apply</button>
+			</form>
 
 			<button class="cool-button" id="reloadBtn" title="Reload the database">
 				<i class="fa-solid fa-rotate-right"></i>

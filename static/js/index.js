@@ -1,16 +1,15 @@
 import {
 	MainModule,
-	saveSortingConfig,
-	sortingState as getSortingState,
 	showStatsBottom,
 	getUserName,
 	setUserName,
 	loginUser,
+	applyFilters,
+	getSortingState,
 } from "./main.js";
 
-let sortingState = getSortingState();
 let videos = [];
-let isAndroid = (function () {
+let isAndroid = (function() {
 	const userAgent = navigator.userAgent || navigator.vendor || window.opera;
 	return /android/i.test(userAgent);
 })();
@@ -20,7 +19,8 @@ const videoGrid = document.querySelector("#videoGrid");
 const renderVideosObserver = new IntersectionObserver(renderNextBatch, {
 	rootMargin: "100px",
 });
-let currentOrientation = "All";
+let lastSelectedSort = null;
+let sortingState = getSortingState();
 
 async function fetchVideos(apiEndpoint = "/api/videos?extras=true") {
 	try {
@@ -29,7 +29,7 @@ async function fetchVideos(apiEndpoint = "/api/videos?extras=true") {
 			throw new Error("Request Wasn't Ok!");
 		}
 		const data = await res.json();
-		console.groupCollapsed("Video analysis...")
+		console.groupCollapsed("Video analysis...");
 		const videos = data.videos.map((vid) => {
 			vid.quality = MainModule.determineQuality(vid); // "4K" | "2K" | "FHD" | "HD" | "SD"
 			vid.orientation = MainModule.determineOrientation(vid); // "16:9" | "9:16" | "1:1"
@@ -71,77 +71,30 @@ function deleteVideo(videoData, cardElement) {
 }
 
 function prepareVideos() {
-	// Create a shallow copy of the videos array
-	let localVideos = [...videos];
-	localVideos.sort((a, b) => {
-		function differenceOfProperty(
-			propName,
-			firstElem,
-			secondElem,
-			parseFunc = null,
-		) {
-			let valA = firstElem[propName];
-			let valB = secondElem[propName];
-
-			if (parseFunc) {
-				valA = parseFunc(valA);
-				valB = parseFunc(valB);
-			}
-			return valA - valB;
-		}
-
-		function convertDurationToInt(value) {
-			if (Number.isFinite(value)) return value;
-			const [minutes, seconds] = String(value).split(":");
-			return Number(minutes) * 60 + Number(seconds);
-		}
-
-		const aFav = MainModule.isFavourite(a.id);
-		const bFav = MainModule.isFavourite(b.id);
-
-		if (aFav !== bFav) return aFav ? -1 : 1;
-
-		if (sortingState.biggerFirst) {
-			return differenceOfProperty("filesize", b, a);
-		} else if (sortingState.smallerFirst) {
-			return differenceOfProperty("filesize", a, b);
-		} else if (sortingState.newerFirst) {
-			return differenceOfProperty("modified_time", b, a);
-		} else if (sortingState.olderFirst) {
-			return differenceOfProperty("modified_time", a, b);
-		} else if (sortingState.longerFirst) {
-			return differenceOfProperty("duration", b, a, convertDurationToInt);
-		} else if (sortingState.shorterFirst) {
-			return differenceOfProperty("duration", a, b, convertDurationToInt);
-		} else {
-			return 0;
-		}
-	});
-
-	return localVideos;
-}
-
-function setSortOrder(order) {
-	Object.keys(sortingState).forEach((key) => {
-		sortingState[key] = key === order;
-	});
-	saveSortingConfig(sortingState);
+	videos = applyFilters(sortingState, videos);
+	return videos;
 }
 
 function renderVideos() {
-	// Reset
+	// Reset DOM and scroll tracking
 	renderVideosObserver.disconnect();
 	videoGrid.innerHTML = "";
 	prevBatch = [];
 
-	// Re-init
+	// 1. Get the current, filtered/sorted list of videos
 	videos = prepareVideos();
+	const videosToRender = videos.filter((v) => !v.skip);
 
-	// Rendering first batch
-	const newBatch = [...videos].splice(prevBatch.length, batchSize);
+	if (videosToRender.length === 0) {
+		console.warn("No videos found matching criteria.");
+		return;
+	}
+
+	// 2. Get the first batch using slice (from index 0, up to batchSize)
+	const newBatch = videosToRender.slice(0, batchSize);
+
+	// 3. Render the batch
 	newBatch.forEach((entry) => {
-		if (entry.skip) return;
-
 		const renderedVideo = MainModule.renderVideo({
 			video: entry,
 			deleteBtnCallback: deleteVideo,
@@ -151,80 +104,126 @@ function renderVideos() {
 		videoGrid.appendChild(renderedVideo);
 	});
 
-	// First
+	// 4. Update state and observer
 	prevBatch.push(...newBatch);
-	renderVideosObserver.observe(videoGrid.lastChild);
+
+	// Only observe if there are more videos left to load
+	if (videosToRender.length > prevBatch.length && videoGrid.lastChild) {
+		renderVideosObserver.observe(videoGrid.lastChild);
+	}
 }
 
 function renderNextBatch(observerEntries) {
 	observerEntries.forEach((entry) => {
 		if (!entry.isIntersecting) return;
 		renderVideosObserver.unobserve(entry.target);
-		const nextBatch = [...videos].splice(prevBatch.length, batchSize);
 
-		// Create new cards
-		const videoCards = nextBatch.map((videoData) => {
-			if (videoData.skip) return;
+		// Find the index in the global 'videos' array of the last video in prevBatch.
+		const lastRenderedVideo = prevBatch[prevBatch.length - 1];
+		const lastIndex = videos.findIndex((v) => v.id === lastRenderedVideo.id);
+
+		if (lastIndex === -1) {
+			console.error("Could not find last rendered video in global array.");
+			return;
+		}
+
+		const startIndex = lastIndex + 1; // Start searching from the next index
+
+		let renderedCount = 0;
+		const newBatch = [];
+
+		// Iterate through the global 'videos' array starting from the element AFTER the last rendered one
+		for (
+			let i = startIndex;
+			i < videos.length && renderedCount < batchSize;
+			i++
+		) {
+			const vid = videos[i];
+
+			// Only include non-skipped videos until the batch is full
+			if (!vid.skip) {
+				newBatch.push(vid);
+				renderedCount++;
+			}
+		}
+
+		if (newBatch.length === 0) {
+			console.log("No more un-skipped videos to load in the remaining list.");
+			return;
+		}
+
+		// Render the batch
+		newBatch.forEach((vid) => {
 			const renderedVideo = MainModule.renderVideo({
-				video: videoData,
+				video: vid,
 				deleteBtnCallback: deleteVideo,
 			});
-			renderedVideo.dataset.quality = videoData.quality;
-			renderedVideo.dataset.orientation = videoData.orientation;
+			renderedVideo.dataset.quality = vid.quality;
+			renderedVideo.dataset.orientation = vid.orientation;
 			videoGrid.appendChild(renderedVideo);
-			return renderedVideo;
-		}).filter(Boolean);
-		
-
-		// Append newly created video card to grid
-		videoCards.forEach((v) => {
-			videoGrid.appendChild(v);
 		});
 
-		// Update for next batch rendering
-		prevBatch.push(...nextBatch);
-		renderVideosObserver.observe(videoGrid.lastChild); // Observer the last element
+		// Update state and set up observer
+		prevBatch.push(...newBatch);
+		if (videoGrid.lastChild) {
+			renderVideosObserver.observe(videoGrid.lastChild);
+		}
 	});
 }
 
-function toggleOrientation(event) {
-	const orientations = ["All", "16:9", "9:16", "1:1"];
-	const currentIdx = orientations.indexOf(currentOrientation);
-	const nextIdx = (currentIdx + 1) % orientations.length; // cycles
-
-	currentOrientation = orientations[nextIdx];
-	const selected = currentOrientation.toLowerCase();
-
-	videos.forEach(vid => {
-		if (selected === "all") {
-			vid.skip = false;
-			return;
-		}
-		vid.skip = vid.orientation.toLowerCase() !== selected;
-	})
-
-	event.target.textContent = currentOrientation.trim();
+function applySorting(filters) {
+	videos = applyFilters(filters, videos);
+	sortingState = getSortingState();
 	renderVideos();
+}
+
+function initilizeFilterDropdown() {
+	const favFirst = document.querySelector("#fav-first");
+	const sortOrder = document.querySelector("#sort-order");
+	const sortBy = document.querySelector("#sortBy");
+	const sortSelected = document.querySelector("#sort-selected");
+	const sortOptions = document.querySelectorAll(".sort-option");
+
+	favFirst.checked = sortingState.favFirst;
+	sortOrder.checked = sortingState.sortAsc;
+	sortBy.value = sortingState.sortBy;
+	sortOptions.forEach((el) => {
+		if (el.dataset.sort === sortBy.value) {
+			el.classList.add("hidden");
+			sortSelected.textContent = el.textContent;
+			sortSelected.dataset.sort = el.dataset.sort;
+		}
+	});
+
+	document.querySelectorAll(`[name="orientation"]`).forEach((el) => {
+		el.checked = false;
+		if (el.value.toLowerCase() === sortingState.orientation.toLowerCase()) {
+			el.checked = true;
+		}
+	});
+	document.querySelectorAll(`[name="quality"]`).forEach((el) => {
+		el.checked = false;
+		if (el.value.toLowerCase() === sortingState.quality.toLowerCase()) {
+			el.checked = true;
+		}
+	});
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
 	videos = await fetchVideos();
-	renderVideos();
+	renderVideos(); // Home Button
 
-	// Home Button
 	if (0) {
 		const homeButton = document.querySelector(".home-button");
 		homeButton.textContent = homeButton.textContent.split(" ").splice(0, 1);
-	}
+	} // Video Count Extra Element
 
-	// Video Count Extra Element
 	if (!isAndroid) {
 		document.getElementById("vidCount").textContent = `${videos.length}`;
 	} else {
 		document.getElementById("vidCount").remove();
-	}
+	} // Reload Button Element
 
-	// Reload Button Element
 	document.getElementById("reloadBtn").addEventListener("click", async (e) => {
 		const iElem = document.querySelector("#reloadBtn").querySelector("i");
 
@@ -250,41 +249,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 			iElem.classList.remove("fa-spin");
 		}
 	});
+	showStatsBottom(videos); // Search
 
-	// Filter DropDown
-	const showDropDownBtn = document.querySelector("#showFilterDropDownButton");
-	const filterDropDownOptions = document.querySelector(
-		"#filterDropDownOptions",
-	);
-
-	showDropDownBtn.addEventListener("click", () => {
-		filterDropDownOptions.classList.toggle("show");
-	});
-
-	document
-		.querySelectorAll("#filterDropDownOptions .option")
-		.forEach((elem) => {
-			if (sortingState[String(elem.dataset.sortOrder)])
-				elem.classList.add("selected");
-			elem.addEventListener("click", (e) => {
-				document
-					.querySelectorAll("#filterDropDownOptions .option")
-					.forEach((opt) => {
-						opt.classList.remove("selected");
-					});
-
-				e.target.classList.add("selected");
-
-				const orderBy = String(e.target.dataset.sortOrder);
-
-				setSortOrder(orderBy);
-				renderVideos();
-			});
-		});
-
-	showStatsBottom(videos);
-
-	// Search
 	const searchDiv = document.querySelector("#searchVideos");
 	const clearSearch = searchDiv.querySelector('button[type="reset"]');
 	const searchInput = searchDiv.querySelector("#search-input");
@@ -296,12 +262,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 		videoGrid.style.display = "";
 		searchResults.classList.add("empty");
 		searchResults.innerHTML = ""; // clear any old results
-	});
+	}); // Debounce (i.e. runs after the user stop firing enevts
 
-	// Debounce (i.e. runs after the user stop firing enevts
 	function debounce(func, delay) {
 		let timeout;
-		return function (...args) {
+		return function(...args) {
 			clearTimeout(timeout);
 			timeout = setTimeout(() => func.apply(this, args), delay);
 		};
@@ -335,14 +300,69 @@ document.addEventListener("DOMContentLoaded", async () => {
 				videoGrid.style.display = "none";
 			}
 		}, 650),
-	);
+	); // UserLogin
 
-	// UserLogin
 	const userLoginButton = document.querySelector("#userBtn");
-	userLoginButton.addEventListener("click", loginUser);
+	userLoginButton.addEventListener("click", loginUser); // New FilterDropDown
 
-	// Orientation Switcher
-	document
-		.querySelector("#orientation-btn")
-		.addEventListener("click", toggleOrientation);
+	const filterDropdownToggle = document.querySelector(
+		"#main-filter-toggle-btn",
+	);
+	const filterDropdown = document.querySelector("#filters-form");
+	const sortSelect = document.querySelector(".sort-select");
+	const sortSelected = document.getElementById("sort-selected");
+	const sortOptions = document.querySelectorAll(".sort-option");
+	const sortByInput = document.getElementById("sortBy"); // toggle dropdown
+
+	filterDropdownToggle.addEventListener("click", () => {
+		filterDropdownToggle.classList.toggle("active");
+		filterDropdown.classList.toggle("show");
+	});
+
+	sortSelected.addEventListener("click", () => {
+		sortSelect.classList.toggle("open");
+	});
+
+	sortOptions.forEach((option) => {
+		if (option.dataset.sort === "date") {
+			option.classList.add("hidden");
+			lastSelectedSort = option;
+		}
+		option.addEventListener("click", () => {
+			const label = option.textContent;
+			const value = option.dataset.sort; // Update button + hidden input
+
+			sortSelected.textContent = label;
+			sortByInput.value = value; // Remove "hidden" from the last selected option
+
+			if (lastSelectedSort) {
+				lastSelectedSort.classList.remove("hidden");
+			} // Hide the currently selected one
+
+			option.classList.add("hidden");
+			lastSelectedSort = option; // Close dropdown
+
+			sortSelect.classList.remove("open");
+		});
+	}); // --- Main Form Submit Handler ---
+
+	document.getElementById("filters-form").addEventListener("submit", (e) => {
+		e.preventDefault();
+
+		const form = new FormData(e.target);
+
+		const data = {
+			favFirst: form.get("favFirst") === "on",
+			sortBy: form.get("sortBy"),
+			sortAsc: form.get("sortAsc") === "on",
+			orientation: form.get("orientation"),
+			quality: form.get("quality"),
+		};
+
+		filterDropdown.classList.remove("show");
+		filterDropdownToggle.classList.remove("active");
+		applySorting(data);
+	});
+
+	initilizeFilterDropdown();
 });

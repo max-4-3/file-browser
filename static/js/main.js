@@ -81,7 +81,7 @@ export const MainModule = (() => {
 
 		console.log(
 			`Guessed aspect ration of ${video.title.slice(0, 20).padEnd(23, ".")}: ${orientation} [${ratio}]`,
-		)
+		);
 		return orientation;
 	}
 
@@ -266,25 +266,77 @@ export const MainModule = (() => {
 	};
 })();
 
-export function sortingState() {
-	const defaultSortState = {
-		newerFirst: true,
-		olderFirst: false,
-		biggerFirst: false,
-		smallerFirst: false,
-		longerFirst: false,
-		shorterFirst: false,
-	};
-	const sortingState = localStorage.getItem("sortingState");
-	if (sortingState) {
-		return JSON.parse(sortingState);
-	} else {
-		return defaultSortState;
-	}
+export function getSortingState() {
+	return (
+		JSON.parse(localStorage.getItem("sortingState")) || {
+			sortBy: "date",
+			sortAsc: false,
+			orientation: "all",
+			quality: "all",
+		}
+	);
 }
 
 export function saveSortingConfig(sortingState) {
 	localStorage.setItem("sortingState", JSON.stringify(sortingState));
+}
+
+export function applyFilters(filters, videos) {
+	let localVideos = [...videos];
+	filterVideos(localVideos, filters)
+	sortVideos(localVideos, filters)
+	saveSortingConfig(filters)
+	return localVideos;
+}
+
+function filterVideos(videos, filters) {
+	videos.forEach((v) => {
+		v.skip = false;
+
+		// Orientation filter
+		if (filters.orientation !== "all") {
+			if (filters.orientation === "landscape" && v.orientation !== "16:9")
+				v.skip = true;
+			else if (filters.orientation === "portrait" && v.orientation !== "9:16")
+				v.skip = true;
+		}
+
+		// Quality filter
+		if (filters.quality !== "all") {
+			if (!v.skip) {
+				v.skip = filters.quality.toLowerCase() !== v.quality.toLowerCase();
+			}
+		}
+	});
+}
+
+function sortVideos(videos, filters) {
+	const sortMap = {
+		date: (v) => v.modified_time,
+		filesize: (v) => v.filesize,
+		duration: (v) => v.duration,
+	};
+
+	const keyFunc = sortMap[filters.sortBy];
+
+	if (!keyFunc) {
+		return;
+	}
+
+	videos.sort((a, b) => {
+		const A = keyFunc(a);
+		const B = keyFunc(b);
+
+		if (filters.favFirst) {
+			const aFav = MainModule.isFavourite(a.id)
+			const bFav = MainModule.isFavourite(b.id)
+
+			if (aFav !== bFav) return aFav ? -1 : 1;
+		}
+
+		if (A === B) return 0;
+		return filters.sortAsc ? A - B : B - A;
+	});
 }
 
 export function showStatsBottom(videos) {
