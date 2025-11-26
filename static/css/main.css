@@ -128,7 +128,8 @@ upper {
 	--card-size: 25em;
 	width: 100%;
 	display: grid;
-	grid-template-columns: repeat(auto-fill, minmax(var(--card-size), 1fr));
+	grid-template-columns: repeat(auto-fill,
+			minmax(min(var(--card-size), 100%), 1fr));
 	gap: var(--space-md);
 	margin-bottom: var(--space-md);
 }
@@ -393,7 +394,6 @@ upper {
 	flex-direction: column;
 	gap: 1rem;
 	justify-content: center;
-	align-items: center;
 }
 
 .top-bar {

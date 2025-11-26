@@ -559,7 +559,7 @@ function renderVideos() {
 
 	// 1. Get the current, filtered/sorted list of videos
 	videos = prepareVideos();
-	const videosToRender = videos.filter((v) => !v.skip || v.id === videoId);
+	const videosToRender = videos.filter((v) => !v.skip);
 
 	if (videosToRender.length === 0) {
 		console.warn("No videos found matching criteria.");
@@ -571,6 +571,7 @@ function renderVideos() {
 
 	// 3. Render the batch
 	newBatch.forEach((entry) => {
+		if (entry.id === videoId) return;
 		const renderedVideo = MainModule.renderVideo({
 			video: entry,
 			deleteBtnCallback: deleteVideo,
@@ -656,6 +657,7 @@ function renderNextBatch(observerEntries) {
 
 		// Render the batch
 		newBatch.forEach((vid) => {
+			if (vid.id === videoId) return;
 			const renderedVideo = MainModule.renderVideo({
 				video: vid,
 				deleteBtnCallback: deleteVideo,
