@@ -45,6 +45,49 @@ let keyboardShortcutsBound = false;
 
 /* -------------------- Utils -------------------- */
 const UtilsModule = (() => {
+	function updateVideoGrid() {
+		videoGrid.childNodes.forEach((el) => {
+			el.classList.remove("playing");
+			el.dataset.videoId === videoId && el.classList.add("playing");
+		});
+	}
+
+	function renderVideo(videoData, updateFunc) {
+		const renderedVideo = MainModule.renderVideo({
+			video: videoData,
+			thumbnailCallback: () => { },
+		});
+		videoData.id === videoId && renderedVideo.classList.add("playing");
+
+		const img = renderedVideo.querySelector("img");
+		if (img) {
+			img.addEventListener("click", async () => {
+				const newVideoId = videoData.id;
+				if (newVideoId && newVideoId !== videoId) {
+					videoId = newVideoId;
+					const newUrl = new URL(window.location.href);
+					newUrl.searchParams.set("id", videoId);
+					window.history.pushState({ path: newUrl.href }, "", newUrl.href);
+
+					PlayerModule.initialize();
+					UtilsModule.updateVideoGrid();
+					setVideoInfoAndPageTitle();
+				} else if (newVideoId === videoId) {
+					window.scroll(0, 0);
+				}
+			});
+		}
+
+		renderedVideo.addEventListener("mousedown", (e) => {
+			if (e.button === 1) {
+				e.preventDefault();
+				window.open(`/watch?id=${videoData.id}`);
+			}
+		});
+
+		return updateFunc?.(renderedVideo, videoData) || renderedVideo;
+	}
+
 	function showPlayerError(message) {
 		console.error(message);
 		loadingState.style.display = "none";
@@ -63,7 +106,7 @@ const UtilsModule = (() => {
 		playerInitialized = false;
 	}
 
-	return { showPlayerError };
+	return { showPlayerError, updateVideoGrid, renderVideo };
 })();
 
 /* -------------------- Keyboard Shortcuts -------------------- */
@@ -246,7 +289,7 @@ const PlayerModule = (() => {
 			</div>
 			<div class="chip current">
 				<p class="icon"><i class="fa-solid fa-database"></i></p>
-				<p class="content">${(currentVideoData.filesize ?? 0 / 1024 ** 2).toFixed(2)}MB</p>
+				<p class="content">${((currentVideoData.filesize ?? 0) / 1024 ** 2).toFixed(2)}MB</p>
 			</div>
 			<div class="chip current">
 				<p class="icon"><i class="fa-solid fa-clock"></i></p>
@@ -256,6 +299,24 @@ const PlayerModule = (() => {
 
 		[...chipsContainer.children].forEach((elem) => {
 			elem.addEventListener("click", (ev) => copyVidInfo(ev, elem));
+		});
+
+		// To grid button
+		const toDownButton = document.createElement("div");
+		toDownButton.className = "cool-button";
+		toDownButton.innerHTML = `<i class="fa-solid fa-angle-down"></i>`;
+		toDownButton.ariaLabel = "Scroll to the video item in grid"
+		toDownButton.addEventListener("click", () => {
+			const cardElement = document.querySelector(
+				`[data-video-id="${videoId}"]`,
+			);
+			!cardElement
+				? MainModule.showToast("Video not found!", "danger")
+				: cardElement.scrollIntoView({
+					behavior: "smooth",
+					block: "center",
+					inline: "center",
+				});
 		});
 
 		// Repeat button
@@ -306,15 +367,15 @@ const PlayerModule = (() => {
 
 		shareVideoButton.addEventListener("click", async () => {
 			if (!currentVideoData) return;
-			if (navigator.share) {
+			if (navigator.share && navigator.canShare) {
 				try {
 					const sharableUrl =
 						new URL(window.location).origin +
-						"?video_id=" +
+						"/api/video?video_id=" +
 						currentVideoData.id;
 					await navigator.share({
 						title: document.title,
-						text: "Open Native",
+						text: "Playable Video Link",
 						url: sharableUrl,
 					});
 					shareVideoButton.style.background = "var(--success)";
@@ -329,6 +390,7 @@ const PlayerModule = (() => {
 		});
 
 		chipsContainer.append(
+			toDownButton,
 			repeatVideoButton,
 			copyButton,
 			shareVideoButton,
@@ -370,7 +432,7 @@ const PlayerModule = (() => {
 			})
 			.finally(() => {
 				setTimeout(() => {
-					// restore icon (best-effort)
+					// restore icon
 					elem.innerHTML = `<i class="fa-regular fa-copy"></i>`;
 				}, 2000);
 			});
@@ -484,7 +546,7 @@ const PlayerModule = (() => {
 		const v = document.querySelector("video");
 		if (v) {
 			v.onloadedmetadata = function() {
-				scrollTo(0, 0);
+				window.scrollTo(0, 0);
 				this.addEventListener("dblclick", (e) => {
 					e.preventDefault();
 					e.stopPropagation();
@@ -571,40 +633,9 @@ function renderVideos() {
 
 	// 3. Render the batch
 	newBatch.forEach((entry) => {
-		if (entry.id === videoId) return;
-		const renderedVideo = MainModule.renderVideo({
-			video: entry,
-			deleteBtnCallback: deleteVideo,
-			thumbnailCallback: () => { },
-		});
-		renderedVideo.dataset.quality = entry.quality;
-		renderedVideo.dataset.orientation = entry.orientation;
-
-		const img = renderedVideo.querySelector("img");
-		if (img) {
-			img.addEventListener("click", async () => {
-				const newVideoId = entry.id;
-				if (newVideoId && newVideoId !== videoId) {
-					videoId = newVideoId;
-					const newUrl = new URL(window.location.href);
-					newUrl.searchParams.set("id", videoId);
-					window.history.pushState({ path: newUrl.href }, "", newUrl.href);
-
-					PlayerModule.initialize();
-					renderVideos();
-					setVideoInfoAndPageTitle();
-				}
-			});
-		}
-
-		renderedVideo.addEventListener("mousedown", (e) => {
-			if (e.button === 1) {
-				e.preventDefault();
-				window.open(`/watch?id=${entry.id}`);
-			}
-		});
-
+		const renderedVideo = UtilsModule.renderVideo(entry);
 		videoGrid.appendChild(renderedVideo);
+		return;
 	});
 
 	// 4. Update state and observer
@@ -657,38 +688,9 @@ function renderNextBatch(observerEntries) {
 
 		// Render the batch
 		newBatch.forEach((vid) => {
-			if (vid.id === videoId) return;
-			const renderedVideo = MainModule.renderVideo({
-				video: vid,
-				deleteBtnCallback: deleteVideo,
-				thumbnailCallback: () => {},
-			});
-			renderedVideo.dataset.quality = vid.quality;
-			renderedVideo.dataset.orientation = vid.orientation;
-			const img = renderedVideo.querySelector("img");
-			if (img) {
-				img.addEventListener("click", async () => {
-					const newVideoId = vid.id;
-					if (newVideoId && newVideoId !== videoId) {
-						videoId = newVideoId;
-						const newUrl = new URL(window.location.href);
-						newUrl.searchParams.set("id", videoId);
-						window.history.pushState({ path: newUrl.href }, "", newUrl.href);
-
-						PlayerModule.initialize();
-						renderVideos();
-						setVideoInfoAndPageTitle();
-					}
-				});
-			}
-
-			renderedVideo.addEventListener("mousedown", (e) => {
-				if (e.button === 1) {
-					e.preventDefault();
-					window.open(`/watch?id=${vid.id}`);
-				}
-			});
+			const renderedVideo = UtilsModule.renderVideo(vid);
 			videoGrid.appendChild(renderedVideo);
+			return;
 		});
 
 		// Update state and set up observer
@@ -699,8 +701,6 @@ function renderNextBatch(observerEntries) {
 	});
 }
 
-
-
 /* -------------------- Sort state setter -------------------- */
 function applySorting(filters) {
 	videos = applyFilters(filters, videos);
@@ -709,7 +709,7 @@ function applySorting(filters) {
 }
 
 function initilizeFilterDropdown() {
-	const favFirst = document.querySelector('#fav-first');
+	const favFirst = document.querySelector("#fav-first");
 	const sortOrder = document.querySelector("#sort-order");
 	const sortBy = document.querySelector("#sortBy");
 	const sortSelected = document.querySelector("#sort-selected");
@@ -719,7 +719,7 @@ function initilizeFilterDropdown() {
 	sortOrder.checked = sortingState.sortAsc;
 	sortBy.value = sortingState.sortBy;
 	sortOptions.forEach((el) => {
-		el.classList.contains("hidden") && el.classList.remove("hidden")
+		el.classList.contains("hidden") && el.classList.remove("hidden");
 		if (el.dataset.sort === sortBy.value) {
 			el.classList.add("hidden");
 			sortSelected.textContent = el.textContent;
@@ -858,13 +858,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 					searchResults.classList.remove("empty");
 					videoGrid.style.display = "none";
 					searchResults.append(
-						...results.map((d) => MainModule.renderVideo({ video: d })),
+						...results
+							.map((d) =>
+								UtilsModule.renderVideo(d, (elem) => {
+									elem.addEventListener("click", () => {
+										searchResults.childNodes.forEach((el) => {
+											el.classList.remove("playing");
+											el.dataset.videoId === videoId &&
+												el.classList.add("playing");
+										});
+									});
+									return elem;
+								}),
+							)
+							.filter(Boolean),
 					);
 				} else {
 					searchResults.classList.add("empty");
 					videoGrid.style.display = "none";
 				}
-			}, 650),
+			}, 150),
 		);
 	}
 
@@ -932,4 +945,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 	});
 
 	initilizeFilterDropdown();
+
+	// To up button
+	const toUpButton = document.getElementById("to-up");
+	toUpButton.addEventListener("click", () => window.scroll(0, 0));
+	window.addEventListener("scroll", () => {
+		toUpButton.classList.toggle("show", window.scrollY > window.innerHeight);
+	});
 });

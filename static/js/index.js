@@ -365,4 +365,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 	});
 
 	initilizeFilterDropdown();
+
+	// To up button
+	const toUpButton = document.getElementById("to-up");
+	toUpButton.addEventListener("click", () => window.scroll(0, 0));
+	window.addEventListener("scroll", () => {
+		toUpButton.classList.toggle("show", window.scrollY > window.innerHeight);
+	});
 });

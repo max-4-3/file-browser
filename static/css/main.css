@@ -157,6 +157,18 @@ upper {
 	text-align: center;
 }
 
+.cool-button.disabled {
+	color: var(--dark-gray);
+	cursor: not-allowed;
+	pointer-events: none;
+}
+
+/* .cool-button.disabled:hover { */
+/* 	background: var(--dark); */
+/* 	color: var(--dark-gray); */
+/* 	filter: none; */
+/* } */
+
 .cool-button.active,
 .cool-button:hover {
 	background-color: var(--light);
@@ -167,6 +179,30 @@ upper {
 /* New Card Design */
 .card * {
 	transition: 0.3s;
+}
+
+.card.playing {
+	filter: grayscale(1);
+	position: relative;
+}
+
+.card.playing::before {
+	content: 'Playing';
+	position: absolute;
+	inset: 0;
+	text-align: center;
+	font-size: var(--text-lg);
+	font-weight: bold;
+	filter: drop-shadow(0 0 4px rgba(0,0,0,.4));
+	z-index: 40;
+	display: flex;
+	align-items: center;
+	pointer-events: none;
+	justify-content: center;
+}
+
+.card.playing:hover {
+	/* all: initial; */
 }
 
 .card {
@@ -641,4 +677,19 @@ upper {
 
 .sort-option.hidden {
 	display: none;
+}
+
+#to-up {
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	z-index: 100;
+	margin: var(--space-sm);
+	transform: translateY(calc(100% + var(--space-sm)));
+	transition: .2s cubic-bezier(1, 0, 0, 1);
+	box-shadow: var(--shadow-md);
+}
+
+#to-up.show {
+	transform: translateY(0);
 }
