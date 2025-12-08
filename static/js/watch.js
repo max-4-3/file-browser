@@ -1,7 +1,6 @@
 import {
 	MainModule,
 	showStatsBottom,
-	setUserName,
 	getUserName,
 	loginUser,
 	applyFilters,
@@ -10,13 +9,9 @@ import {
 
 // --- Global DOM Element References ---
 const playerElement = document.getElementById("player");
-const loadingState = document.getElementById("loadingState");
-const errorState = document.getElementById("errorState");
-const errorMessage = document.getElementById("errorMessage");
 const retryButton = document.getElementById("retryButton");
 const refreshButton = document.getElementById("refreshVideos");
 const downloadBtn = document.getElementById("downloadBtn");
-const playerType = document.getElementById("playerType");
 const videoGrid = document.getElementById("videoGrid");
 
 // --- Global / Module variables ---
@@ -31,8 +26,6 @@ const batchSize = 10;
 const renderVideoObserver = new IntersectionObserver(renderNextBatch, {
 	rootMargin: "100px",
 });
-let player = null; // Plyr instance or null
-let plyrTimeoutId = null;
 let playerInitialized = false;
 let currentVideoData = null;
 let useNative =
@@ -56,6 +49,7 @@ const UtilsModule = (() => {
 		const renderedVideo = MainModule.renderVideo({
 			video: videoData,
 			thumbnailCallback: () => { },
+			deleteBtnCallback: deleteVideo,
 		});
 		videoData.id === videoId && renderedVideo.classList.add("playing");
 
@@ -88,23 +82,7 @@ const UtilsModule = (() => {
 		return updateFunc?.(renderedVideo, videoData) || renderedVideo;
 	}
 
-	function showPlayerError(message) {
-		console.error(message);
-		loadingState.style.display = "none";
-		playerElement.style.display = "none";
-		errorState.style.display = "flex";
-		errorMessage.textContent = message;
-
-		if (player && typeof player.destroy === "function") {
-			try {
-				player.destroy();
-			} catch (e) {
-				console.error("Error destroying player during error display:", e);
-			}
-		}
-		player = null;
-		playerInitialized = false;
-	}
+	function showPlayerError() { }
 
 	return { showPlayerError, updateVideoGrid, renderVideo };
 })();
@@ -208,57 +186,38 @@ function setupKeyboardShortcuts(videoElGetter = () => playerElement) {
 
 /* -------------------- Player Module -------------------- */
 const PlayerModule = (() => {
-	function destroyPlayerSafe() {
-		if (player && typeof player.destroy === "function") {
-			try {
-				player.destroy();
-			} catch (e) {
-				console.error("Error destroying Plyr instance:", e);
-			}
-		}
-		player = null;
-		playerInitialized = false;
-	}
-
-	function fallbackToNative() {
-		// if already initialized (native or plyr), skip
-		if (playerInitialized) {
-			console.log("Player already initialized; skipping fallback.");
+	function initialize() {
+		if (!videoId) {
+			UtilsModule.showPlayerError("Error: No video ID provided");
 			return;
 		}
 
-		console.warn("Falling back to native video player.");
+		playerInitialized = false;
+		downloadBtn.setAttribute("href", `/api/video?video_id=${videoId}`);
 
-		destroyPlayerSafe();
+		renderPlayer();
+	}
 
-		// basic styling / attributes for native element
-		playerElement.className = "video";
-		playerElement.style.width = "100%";
-		playerElement.style.height = "70dvh";
-		playerElement.style.border = "1px solid var(--gray)";
-		playerElement.style.background = "black";
-		playerElement.style.borderRadius = "var(--space-sm)";
-		playerElement.style.boxShadow = "var(--shadow-md)";
-		playerElement.src = `/api/video?video_id=${videoId}`;
-		playerElement.setAttribute("preload", "metadata");
-		playerElement.controls = true;
+	function renderPlayer() {
+		if (!playerElement) return;
 
-		loadingState.style.display = "none";
-		playerElement.style.display = "block";
-		playerInitialized = true;
+		const videoUrl = `${window.location.origin}/api/video?video_id=${videoId}`;
+		playerElement.src = videoUrl;
 
-		playerElement.onerror = () => {
-			UtilsModule.showPlayerError(
-				"Error playing video in native player. Please check the video source.",
-			);
-		};
+		playerElement.onloadedmetadata = () => {
+			window.scroll(0, 0, { bahaviour: "smooth" });
+		}
+
+		playerElement.onerror = (e) => {
+			console.error(e);
+			MainModule.showToast("Video loading failed!", "danger");
+		}
 
 		// ensure keyboard shortcuts bound and reference the native element
 		setupKeyboardShortcuts(() => playerElement);
 
 		// fullscreen change visual adjustment
 		document.addEventListener("fullscreenchange", () => {
-			// use document.fullscreenElement to know state
 			playerElement.style.borderWidth = document.fullscreenElement
 				? "0px"
 				: "1px";
@@ -266,141 +225,277 @@ const PlayerModule = (() => {
 	}
 
 	function setVideoInfo() {
-		const videoInfoContainer = document.querySelector("div.current.video-info");
-		if (!videoInfoContainer) return;
+		const videoInfoContainer = document.querySelector("div.info-container");
+		const videoTitleContainer = document.querySelector("div.title-container");
+		const videoActionContainer = document.querySelector("div.action-container");
+		if (!videoInfoContainer || !videoActionContainer || !videoTitleContainer)
+			return;
 
 		videoInfoContainer.innerHTML = "";
+		videoActionContainer.innerHTML = "";
 		if (!currentVideoData) return;
 
-		const videoTitleContainer = document.createElement("p");
-		videoTitleContainer.className = "current title";
-		videoTitleContainer.innerText = currentVideoData.title || "";
+		videoTitleContainer.innerText = currentVideoData.title || "untitled video";
 
 		const videoModifiedTime = new Date(
 			(currentVideoData.modified_time || 0) * 1000,
 		);
 
-		const chipsContainer = document.createElement("div");
-		chipsContainer.className = "current chips-container";
-		chipsContainer.innerHTML = `
-			<div class="chip current">
-				<p class="icon"><i class="fa-solid fa-video"></i></p>
-				<p class="content">${currentVideoData.quality || "SD"} (${currentVideoData.orientation || "?"})</p>
-			</div>
-			<div class="chip current">
-				<p class="icon"><i class="fa-solid fa-database"></i></p>
-				<p class="content">${((currentVideoData.filesize ?? 0) / 1024 ** 2).toFixed(2)}MB</p>
-			</div>
-			<div class="chip current">
-				<p class="icon"><i class="fa-solid fa-clock"></i></p>
-				<p class="content">${videoModifiedTime.toLocaleString()} (${MainModule.getRelativeTime(videoModifiedTime.getTime() / 1000)})</p>
-			</div>
-		`;
+		function renderInfoChip({ chipIcon, chipContent, postFunc }) {
+			const chipContainer = document.createElement("div");
+			chipContainer.className = "current chip";
+			chipContainer.innerHTML = `
+			<p class="icon">${chipIcon}</p>
+			<p class="content">${chipContent}</p>
+			`;
+			typeof postFunc === "function" && postFunc(chipContainer);
+			return chipContainer;
+		}
 
-		[...chipsContainer.children].forEach((elem) => {
-			elem.addEventListener("click", (ev) => copyVidInfo(ev, elem));
-		});
-
-		// To grid button
-		const toDownButton = document.createElement("div");
-		toDownButton.className = "cool-button";
-		toDownButton.innerHTML = `<i class="fa-solid fa-angle-down"></i>`;
-		toDownButton.ariaLabel = "Scroll to the video item in grid"
-		toDownButton.addEventListener("click", () => {
-			const cardElement = document.querySelector(
-				`[data-video-id="${videoId}"]`,
-			);
-			!cardElement
-				? MainModule.showToast("Video not found!", "danger")
-				: cardElement.scrollIntoView({
-					behavior: "smooth",
-					block: "center",
-					inline: "center",
-				});
-		});
-
-		// Repeat button
-		const repeatVideoButton = document.createElement("div");
-		repeatVideoButton.className = "cool-button";
-		repeatVideoButton.innerHTML = `<i class="fa-regular fa-repeat"></i>`;
-		const videoEl = document.querySelector("video");
-		repeatVideoButton.addEventListener("click", () => {
-			if (!videoEl) return;
-			if (repeatVideoButton.classList.contains("active")) {
-				repeatVideoButton.classList.remove("active");
-				videoEl.loop = false;
-			} else {
-				repeatVideoButton.classList.add("active");
-				videoEl.loop = true;
-			}
-		});
-
-		// Copy button (visual only triggers copyVidInfo as well)
-		const copyButton = document.createElement("div");
-		copyButton.className = "cool-button";
-		copyButton.innerHTML = `<i class="fa-regular fa-copy"></i>`;
-		copyButton.addEventListener("click", (ev) => copyVidInfo(ev, copyButton));
-
-		// Delete button
-		const deleteVideoButton = document.createElement("div");
-		deleteVideoButton.className = "cool-button";
-		// fixed malformed HTML
-		deleteVideoButton.innerHTML = `<i class="fa-regular fa-trash"></i>`;
-		deleteVideoButton.style.background = "var(--danger, rgb(200,0,0))";
-		deleteVideoButton.style.color = "var(--light, rgb(200,200,200))";
-
-		deleteVideoButton.addEventListener(
-			"click",
-			(e) => {
-				if (!currentVideoData) return;
-				deleteVideo(currentVideoData, document.createElement("span"));
-				// visual feedback
-				deleteVideoButton.innerHTML = `<i class="fa-solid fa-trash"></i>`;
+		const infoChips = [
+			{
+				icon: `<i class="fa-solid fa-video"></i>`,
+				content: `${currentVideoData.quality || "SD"} (${currentVideoData.orientation || "?"})`,
 			},
-			{ once: true },
-		);
+			{
+				icon: `<i class="fa-solid fa-database"></i>`,
+				content: `${((currentVideoData.filesize ?? 0) / 1024 ** 2).toFixed(2)}MB`,
+			},
+			{
+				icon: `<i class="fa-solid fa-clock"></i>`,
+				content: `${videoModifiedTime.toLocaleString()} (${MainModule.getRelativeTime(
+					videoModifiedTime.getTime() / 1000,
+				)})`,
+			},
+		]
+			.map((item) =>
+				renderInfoChip({
+					chipIcon: item.icon,
+					chipContent: item.content,
+					postFunc: (elem) => {
+						elem.addEventListener("click", () => copyVidInfo(elem));
+					},
+				}),
+			)
+			.filter(Boolean);
+		// Append chips
+		infoChips.forEach((el) => videoInfoContainer.appendChild(el));
 
-		// Share button
-		const shareVideoButton = document.createElement("div");
-		shareVideoButton.className = "cool-button";
-		shareVideoButton.innerHTML = `<i class="fa-solid fa-share-from-square"></i>`;
+		function renderActionButton({
+			buttonContent,
+			eventListeners,
+			additionalProps,
+			postFunc,
+		}) {
+			const actionButton = document.createElement("button");
+			actionButton.className = "cool-button";
+			actionButton.innerHTML = buttonContent;
+			additionalProps.forEach(({ key, value }) =>
+				actionButton.setAttribute(key, value),
+			);
+			eventListeners.forEach(({ event, handler, options }) =>
+				actionButton.addEventListener(event, handler, options),
+			);
+			typeof postFunc === "function" && postFunc(actionButton);
+			return actionButton;
+		}
 
-		shareVideoButton.addEventListener("click", async () => {
-			if (!currentVideoData) return;
-			if (navigator.share && navigator.canShare) {
-				try {
-					const sharableUrl =
-						new URL(window.location).origin +
-						"/api/video?video_id=" +
-						currentVideoData.id;
-					await navigator.share({
-						title: document.title,
-						text: "Playable Video Link",
-						url: sharableUrl,
-					});
-					shareVideoButton.style.background = "var(--success)";
-				} catch (e) {
-					shareVideoButton.style.background = "var(--warning)";
-				} finally {
-					setTimeout(() => (shareVideoButton.style.background = ""), 1000);
-				}
-			} else {
-				MainModule.showToast("Unable to share!", "warning");
-			}
-		});
-
-		chipsContainer.append(
-			toDownButton,
-			repeatVideoButton,
-			copyButton,
-			shareVideoButton,
-			deleteVideoButton,
-		);
-		videoInfoContainer.appendChild(videoTitleContainer);
-		videoInfoContainer.appendChild(chipsContainer);
+		const actionButtons = [
+			{
+				content: `<i class="fa-solid fa-angle-down"></i>`,
+				props: [
+					{ key: "ariaLabel", value: "Scroll to the video item in grid" },
+				],
+				eventListeners: [
+					{
+						event: "click",
+						handler: () => {
+							const cardElement = document.querySelector(
+								`[data-video-id="${videoId}"]`,
+							);
+							!cardElement
+								? MainModule.showToast("Video not found!", "danger")
+								: cardElement.scrollIntoView({
+									behavior: "smooth",
+									block: "center",
+									inline: "center",
+								});
+						},
+					},
+				],
+				postFunc: null,
+			},
+			{
+				content: `<i class="fa-solid fa-repeat"></i>`,
+				props: [{ key: "ariaLabel", value: "Repeat current video" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: (ev) => {
+							const videoElem = document.querySelector("video");
+							if (!videoElem) return;
+							videoElem.loop = !videoElem.loop;
+							ev.currentTarget.classList.toggle("active", videoElem.loop);
+						},
+					},
+				],
+				postFunc: null,
+			},
+			{
+				content: `<i class="fa-solid fa-link"></i>`,
+				props: [{ key: "ariaLabel", value: "Copy video url" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: (event) => {
+							const target = event.currentTarget;
+							const videoUrl = `${new URL(window.location).origin}/api/video?video_id=${videoId}`;
+							copyToClipboard(target, () => videoUrl);
+						},
+					},
+				],
+				postFunc: null,
+			},
+			{
+				content: `<i class="fa-solid fa-copy"></i>`,
+				props: [{ key: "ariaLabel", value: "Copy video info" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: (event) => {
+							copyVidInfo(event.currentTarget);
+						},
+					},
+				],
+				postFunc: null,
+			},
+			{
+				content: `<i class="fa-solid fa-trash"></i>`,
+				props: [
+					{
+						key: "ariaLabel",
+						value: "Delete current video, requires authentication!",
+					},
+				],
+				eventListeners: [
+					{
+						event: "click",
+						handler: (event) => {
+							if (!currentVideoData) return;
+							deleteVideo(
+								currentVideoData,
+								document.querySelector(
+									`[data-video-id="${currentVideoData.id}"]`,
+								) || document.createElement("span"),
+							);
+							event.currentTarget.innerHTML = `<i class="fa-solid fa-trash"></i>`;
+						},
+						options: { once: true },
+					},
+				],
+				postFunc: (deleteVideoButton) => {
+					deleteVideoButton.style.background = "var(--danger, rgb(200,0,0))";
+					deleteVideoButton.style.color = "var(--light, rgb(200,200,200))";
+				},
+			},
+			{
+				content: `<i class="fa-solid fa-share-from-square"></i>`,
+				props: [{ key: "ariaLabel", value: "Share current video" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: async (event) => {
+							if (!currentVideoData) return;
+							if (navigator.share && navigator.canShare) {
+								const shareVideoButton = event.currentTarget;
+								try {
+									const sharableUrl =
+										new URL(window.location).origin +
+										"/api/video?video_id=" +
+										currentVideoData.id;
+									await navigator.share({
+										title: document.title,
+										text: "Playable Video Link",
+										url: sharableUrl,
+									});
+									shareVideoButton.style.background = "var(--success)";
+								} catch (e) {
+									shareVideoButton.style.background = "var(--warning)";
+								} finally {
+									setTimeout(
+										() => (shareVideoButton.style.background = ""),
+										1000,
+									);
+								}
+							} else {
+								MainModule.showToast("Unable to share!", "warning");
+							}
+						},
+					},
+				],
+				postFunc: null,
+			},
+		]
+			.map((item) =>
+				renderActionButton({
+					buttonContent: item.content,
+					eventListeners: item.eventListeners,
+					additionalProps: item.props,
+					postFunc: item.postFunc,
+				}),
+			)
+			.filter(Boolean);
+		actionButtons.forEach((el) => videoActionContainer.appendChild(el));
 	}
 
-	function copyVidInfo(evt, elem) {
+	function copyToClipboard(
+		parentElem,
+		infoGetter,
+		{ onSuccess, onFailure = console.error } = {},
+	) {
+		if (!(parentElem instanceof HTMLElement)) {
+			onFailure?.(Error("Invalid parent element"));
+			return;
+		}
+
+		if (!navigator.clipboard?.writeText) {
+			parentElem.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Can't Copy!`;
+			parentElem.style.background = "var(--danger)";
+			onFailure?.(Error("Clipboard API not available"));
+			return;
+		}
+
+		const copyInfo = typeof infoGetter === "function" ? infoGetter() : "";
+
+		if (typeof copyInfo !== "string" || !copyInfo.trim()) {
+			onFailure?.(Error("Copy info must be a non-empty string"));
+			return;
+		}
+
+		const originalContent = parentElem.innerHTML;
+		parentElem.disabled = true;
+
+		navigator.clipboard
+			.writeText(copyInfo)
+			.then(() => {
+				parentElem.innerHTML = `<i class="fa-solid fa-copy"></i> Copied!`;
+				onSuccess?.();
+			})
+			.catch((err) => {
+				parentElem.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Error!`;
+				onFailure?.(err);
+			})
+			.finally(() => {
+				clearTimeout(parentElem.copyTimeout);
+				parentElem.copyTimeout = setTimeout(() => {
+					parentElem.innerHTML = originalContent;
+					parentElem.disabled = false;
+				}, 2000);
+			});
+	}
+
+
+	function copyVidInfo(elem) {
 		if (!currentVideoData) return;
 		const videoModifiedTime = new Date(
 			(currentVideoData.modified_time || 0) * 1000,
@@ -421,138 +516,7 @@ const PlayerModule = (() => {
 			),
 		});
 
-		navigator.clipboard
-			?.writeText(textToCopy)
-			.then(() => {
-				elem.innerHTML = `<i class="fa-solid fa-copy"></i>`;
-			})
-			.catch((err) => {
-				elem.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i>`;
-				console.error("Copy Error:", err);
-			})
-			.finally(() => {
-				setTimeout(() => {
-					// restore icon
-					elem.innerHTML = `<i class="fa-regular fa-copy"></i>`;
-				}, 2000);
-			});
-	}
-
-	function initialize() {
-		if (!videoId) {
-			UtilsModule.showPlayerError("Error: No video ID provided");
-			return;
-		}
-
-		playerInitialized = false;
-		clearTimeout(plyrTimeoutId);
-		downloadBtn.setAttribute("href", `/api/video?video_id=${videoId}`);
-
-		destroyPlayerSafe();
-
-		playerElement.src = "";
-		playerElement.removeAttribute("controls");
-		loadingState.style.display = "flex";
-		errorState.style.display = "none";
-		playerElement.style.display = "none";
-
-		// fallback timer
-		plyrTimeoutId = setTimeout(() => {
-			if (!playerInitialized) fallbackToNative();
-		}, 3000);
-
-		try {
-			if (useNative) throw new Error("Native Player Requested!");
-
-			// initialize Plyr
-			player = new Plyr("#player", {
-				autoplay: false,
-				seekTime: 10,
-				captions: { active: false },
-				keyboard: { focused: true, global: true },
-				controls: [
-					"play-large",
-					"restart",
-					"rewind",
-					"play",
-					"fast-forward",
-					"progress",
-					"current-time",
-					"duration",
-					"mute",
-					"volume",
-					"captions",
-					"settings",
-					"pip",
-					"airplay",
-					"download",
-					"fullscreen",
-				],
-				urls: { download: `/api/video?video_id=${videoId}` },
-			});
-
-			player.source = {
-				type: "video",
-				sources: [{ src: `/api/video?video_id=${videoId}` }],
-				poster: `/api/thumbnail?video_id=${videoId}`,
-			};
-
-			// when Plyr metadata loaded
-			player.on("loadedmetadata", () => {
-				clearTimeout(plyrTimeoutId);
-				if (!playerInitialized) {
-					loadingState.style.display = "none";
-					playerElement.style.display = "block";
-					playerInitialized = true;
-					console.log("Plyr loaded successfully.");
-				}
-
-				// wheel-to-seek on progress bar (if present)
-				const videoElem = document.querySelector(".video-container video");
-				const progressBar = document.querySelector(
-					".video-container .plyr__controls__item.plyr__progress__container",
-				);
-				let seekTime = 10;
-				progressBar?.addEventListener("wheel", (e) => {
-					if (!videoElem) return;
-					videoElem.currentTime = Math.max(
-						0,
-						Math.min(
-							videoElem.currentTime - Math.sign(e.deltaY) * seekTime,
-							videoElem.duration || Infinity,
-						),
-					);
-					e.preventDefault();
-				});
-			});
-
-			player.on("error", (event) => {
-				console.error("Plyr error:", event);
-				clearTimeout(plyrTimeoutId);
-				fallbackToNative();
-			});
-
-			// ensure keyboard shortcuts reference the actual underlying <video> element
-			setupKeyboardShortcuts(
-				() => document.querySelector("video") || playerElement,
-			);
-		} catch (err) {
-			console.error("Plyr init failed:", err);
-			clearTimeout(plyrTimeoutId);
-			fallbackToNative();
-		}
-
-		// disable dblclick fullscreen toggling by default
-		const v = document.querySelector("video");
-		if (v) {
-			v.onloadedmetadata = function() {
-				window.scrollTo(0, 0);
-				this.addEventListener("dblclick", (e) => {
-					e.preventDefault();
-					e.stopPropagation();
-				});
-			};
-		}
+		copyToClipboard(elem, () => textToCopy);
 	}
 
 	return { initialize, setVideoInfo };
@@ -779,18 +743,18 @@ document.addEventListener("DOMContentLoaded", async () => {
 	videos = await fetchVideos();
 	renderVideos();
 
-	// Player type UI: show actual active type
-	playerType.textContent = useNative ? "Native" : "Modern";
-	playerType.dataset.playerType = useNative ? "native" : "modern";
-	playerType.addEventListener("click", () => {
-		// toggle between native and modern
-		useNative = !useNative;
-		playerType.textContent = useNative ? "Native" : "Modern";
-		playerType.dataset.playerType = useNative ? "native" : "modern";
-		localStorage.setItem("playerType", useNative ? "native" : "modern");
-		PlayerModule.initialize();
-		setVideoInfoAndPageTitle();
-	});
+	// // Player type UI: show actual active type
+	// playerType.textContent = useNative ? "Native" : "Modern";
+	// playerType.dataset.playerType = useNative ? "native" : "modern";
+	// playerType.addEventListener("click", () => {
+	// 	// toggle between native and modern
+	// 	useNative = !useNative;
+	// 	playerType.textContent = useNative ? "Native" : "Modern";
+	// 	playerType.dataset.playerType = useNative ? "native" : "modern";
+	// 	localStorage.setItem("playerType", useNative ? "native" : "modern");
+	// 	PlayerModule.initialize();
+	// 	setVideoInfoAndPageTitle();
+	// });
 
 	// Retry button
 	retryButton?.addEventListener("click", PlayerModule.initialize);

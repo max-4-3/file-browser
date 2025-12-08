@@ -15,14 +15,15 @@
 </head>
 
 <body>
-	<button id="to-up" class="cool-button"><i class="fa-solid fa-angle-up"></i></button>
+	<button id="to-up" class="cool-button">
+		<i class="fa-solid fa-angle-up"></i>
+	</button>
 	<div id="toast-container"></div>
 	<div class="top-bar">
 		<button class="home-button" onclick="window.location.href='/'">
 			<i class="fa-solid fa-house"></i>
 		</button>
 		<div class="buttons">
-			<button id="playerType" class="cool-button">Native</button>
 			<button id="main-filter-toggle-btn" class="cool-button" type="button">
 				<i class="fa-solid fa-filter"></i>
 			</button>
@@ -108,33 +109,15 @@
 
 	<div class="container">
 		<div class="video-container">
-			<div id="loadingState" class="video-loading" style="display: none">
-				<div class="loading-spinner"></div>
-				<p>Loading video...</p>
+			<div class="player-container">
+				<video id="player" preload="metadata" controls></video>
 			</div>
 
-			<div id="errorState" class="video-error" style="display: none">
-				<div class="video-error-icon">
-					<i class="fas fa-exclamation-triangle"></i>
-				</div>
-				<h3>Failed to load video</h3>
-				<p id="errorMessage">An unknown error occurred</p>
-				<button id="retryButton" class="retry-button">Retry</button>
-			</div>
+			<div class="title-container current title"></div>
 
-			<video id="player" playsinline="playsinline" controls="controls" style="display: none">
-				<!-- Source will be added by JavaScript -->
-			</video>
+			<div class="info-container"></div>
 
-			<div class="video-info current">
-				<p class="current title"></p>
-				<div class="chips-container current">
-					<div class="chip">
-						<p class="content"></p>
-						<div class="icon"></div>
-					</div>
-				</div>
-			</div>
+			<div class="action-container"></div>
 		</div>
 
 		<div class="video-library" style="width: 100%">
