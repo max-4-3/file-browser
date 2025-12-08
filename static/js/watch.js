@@ -28,8 +28,6 @@ const renderVideoObserver = new IntersectionObserver(renderNextBatch, {
 });
 let playerInitialized = false;
 let currentVideoData = null;
-let useNative =
-	String(localStorage.getItem("playerType") || "").toLowerCase() === "native";
 let lastSelectedSort = null;
 let sortingState = getSortingState();
 
@@ -206,12 +204,12 @@ const PlayerModule = (() => {
 
 		playerElement.onloadedmetadata = () => {
 			window.scroll(0, 0, { bahaviour: "smooth" });
-		}
+		};
 
 		playerElement.onerror = (e) => {
 			console.error(e);
 			MainModule.showToast("Video loading failed!", "danger");
-		}
+		};
 
 		// ensure keyboard shortcuts bound and reference the native element
 		setupKeyboardShortcuts(() => playerElement);
@@ -236,6 +234,7 @@ const PlayerModule = (() => {
 		if (!currentVideoData) return;
 
 		videoTitleContainer.innerText = currentVideoData.title || "untitled video";
+		videoTitleContainer.setAttribute("title", videoTitleContainer.innerText);
 
 		const videoModifiedTime = new Date(
 			(currentVideoData.modified_time || 0) * 1000,
@@ -304,7 +303,7 @@ const PlayerModule = (() => {
 			{
 				content: `<i class="fa-solid fa-angle-down"></i>`,
 				props: [
-					{ key: "ariaLabel", value: "Scroll to the video item in grid" },
+					{ key: "title", value: "Scroll to the video item in grid" },
 				],
 				eventListeners: [
 					{
@@ -327,7 +326,7 @@ const PlayerModule = (() => {
 			},
 			{
 				content: `<i class="fa-solid fa-repeat"></i>`,
-				props: [{ key: "ariaLabel", value: "Repeat current video" }],
+				props: [{ key: "title", value: "Repeat current video" }],
 				eventListeners: [
 					{
 						event: "click",
@@ -343,7 +342,7 @@ const PlayerModule = (() => {
 			},
 			{
 				content: `<i class="fa-solid fa-link"></i>`,
-				props: [{ key: "ariaLabel", value: "Copy video url" }],
+				props: [{ key: "title", value: "Copy video url" }],
 				eventListeners: [
 					{
 						event: "click",
@@ -358,7 +357,7 @@ const PlayerModule = (() => {
 			},
 			{
 				content: `<i class="fa-solid fa-copy"></i>`,
-				props: [{ key: "ariaLabel", value: "Copy video info" }],
+				props: [{ key: "title", value: "Copy video info" }],
 				eventListeners: [
 					{
 						event: "click",
@@ -373,7 +372,7 @@ const PlayerModule = (() => {
 				content: `<i class="fa-solid fa-trash"></i>`,
 				props: [
 					{
-						key: "ariaLabel",
+						key: "title",
 						value: "Delete current video, requires authentication!",
 					},
 				],
@@ -400,7 +399,7 @@ const PlayerModule = (() => {
 			},
 			{
 				content: `<i class="fa-solid fa-share-from-square"></i>`,
-				props: [{ key: "ariaLabel", value: "Share current video" }],
+				props: [{ key: "title", value: "Share current video" }],
 				eventListeners: [
 					{
 						event: "click",
@@ -493,7 +492,6 @@ const PlayerModule = (() => {
 				}, 2000);
 			});
 	}
-
 
 	function copyVidInfo(elem) {
 		if (!currentVideoData) return;
@@ -616,34 +614,19 @@ function renderNextBatch(observerEntries) {
 		if (!entry.isIntersecting) return;
 		renderVideoObserver.unobserve(entry.target);
 
-		// Find the index in the global 'videos' array of the last video in prevBatch.
-		const lastRenderedVideo = prevBatch[prevBatch.length - 1];
-		const lastIndex = videos.findIndex((v) => v.id === lastRenderedVideo.id);
+		const lastId = prevBatch.at(-1)?.id;
+		const startIndex = videos.findIndex((v) => v.id === lastId) + 1;
 
-		if (lastIndex === -1) {
-			console.error("Could not find last rendered video in global array.");
+		if (!startIndex) {
+			console.error("Last rendered video not found");
 			return;
 		}
 
-		const startIndex = lastIndex + 1; // Start searching from the next index
-
-		let renderedCount = 0;
-		const newBatch = [];
-
-		// Iterate through the global 'videos' array starting from the element AFTER the last rendered one
-		for (
-			let i = startIndex;
-			i < videos.length && renderedCount < batchSize;
-			i++
-		) {
-			const vid = videos[i];
-
-			// Only include non-skipped videos until the batch is full
-			if (!vid.skip) {
-				newBatch.push(vid);
-				renderedCount++;
-			}
-		}
+		const newBatch = videos
+			.slice(startIndex)
+			.filter((v) => !v.skip)
+			.slice(0, batchSize)
+			.filter(Boolean);
 
 		if (newBatch.length === 0) {
 			console.log("No more un-skipped videos to load in the remaining list.");
@@ -742,19 +725,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 	// fetch videos (global var)
 	videos = await fetchVideos();
 	renderVideos();
-
-	// // Player type UI: show actual active type
-	// playerType.textContent = useNative ? "Native" : "Modern";
-	// playerType.dataset.playerType = useNative ? "native" : "modern";
-	// playerType.addEventListener("click", () => {
-	// 	// toggle between native and modern
-	// 	useNative = !useNative;
-	// 	playerType.textContent = useNative ? "Native" : "Modern";
-	// 	playerType.dataset.playerType = useNative ? "native" : "modern";
-	// 	localStorage.setItem("playerType", useNative ? "native" : "modern");
-	// 	PlayerModule.initialize();
-	// 	setVideoInfoAndPageTitle();
-	// });
 
 	// Retry button
 	retryButton?.addEventListener("click", PlayerModule.initialize);
@@ -857,6 +827,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 	const sortSelected = document.getElementById("sort-selected");
 	const sortOptions = document.querySelectorAll(".sort-option");
 	const sortByInput = document.getElementById("sortBy"); // toggle dropdown
+	const resetButton = filterDropdown.querySelector('[type="reset"]')
+
+	resetButton?.addEventListener("click", () => {
+		const data = {
+			favFirst: false,
+			sortBy: "date",
+			sortAsc: false,
+			orientation: "all",
+			quality: "all",
+		};
+		applySorting(data);
+		filterDropdown.classList.remove("show");
+	})
 
 	filterDropdownToggle.addEventListener("click", () => {
 		filterDropdownToggle.classList.toggle("active");

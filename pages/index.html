@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <head>
 	<meta charset="UTF-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -93,7 +94,10 @@
 					</label>
 				</div>
 
-				<button type="submit" class="filter-toggle-btn cool-button">Apply</button>
+				<div class="button-group" style="display: flex; gap: var(--space-xs); align-items: center;">
+					<button type="reset" class="cool-button"><i class="fa-solid fa-rotate-left"></i></button>
+					<button type="submit" class="filter-toggle-btn cool-button">Apply</button>
+				</div>
 			</form>
 
 			<button class="cool-button" id="reloadBtn" title="Reload the database">
