@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlmodel import SQLModel, Column, JSON, Field
 from pydantic import BaseModel
 import os
@@ -39,6 +40,9 @@ class VideoResponse(BaseModel):
     filesize: int
     modified_time: float
     extras: dict
+
+class VideoUpdate(BaseModel):
+    title: Optional[str]
 
 class DeletedVideo(SQLModel, table=True):
     id: str = Field(default=None, primary_key=True)

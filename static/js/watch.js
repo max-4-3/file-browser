@@ -4,6 +4,7 @@ import {
 	getUserName,
 	loginUser,
 	applyFilters,
+	showModal,
 	getSortingState,
 } from "./main.js";
 
@@ -36,6 +37,37 @@ let keyboardShortcutsBound = false;
 
 /* -------------------- Utils -------------------- */
 const UtilsModule = (() => {
+	const playPrev = () => {
+		let prevVideo = document.querySelector(
+			`[data-video-id="${videoId}"]`,
+		).previousSibling;
+		if (!prevVideo) {
+			console.info("No previous video from:", videoId);
+			MainModule.showToast("No Previous Video", "warning");
+			return;
+		}
+
+		console.info("Playing prev video:", prevVideo.dataset.videoId);
+		videoId = prevVideo.dataset.videoId;
+		PlayerModule.initialize(true);
+		UtilsModule.updateVideoGrid();
+	};
+	const playNext = () => {
+		let nextVideo = document.querySelector(
+			`[data-video-id="${videoId}"]`,
+		).nextSibling;
+		if (!nextVideo) {
+			console.info("No next video from:", videoId);
+			MainModule.showToast("No Next Video", "warning");
+			return;
+		}
+
+		console.info("Playing next video:", nextVideo.dataset.videoId);
+		videoId = nextVideo.dataset.videoId;
+		PlayerModule.initialize(true);
+		UtilsModule.updateVideoGrid();
+	};
+
 	function updateVideoGrid() {
 		videoGrid.childNodes.forEach((el) => {
 			el.classList.remove("playing");
@@ -57,11 +89,10 @@ const UtilsModule = (() => {
 				const newVideoId = videoData.id;
 				if (newVideoId && newVideoId !== videoId) {
 					videoId = newVideoId;
-					const newUrl = new URL(window.location.href);
-					newUrl.searchParams.set("id", videoId);
-					window.history.pushState({ path: newUrl.href }, "", newUrl.href);
 
-					PlayerModule.initialize();
+					PlayerModule.initialize(
+						!(document.querySelector("video")?.paused || false),
+					);
 					UtilsModule.updateVideoGrid();
 					setVideoInfoAndPageTitle();
 				} else if (newVideoId === videoId) {
@@ -82,7 +113,7 @@ const UtilsModule = (() => {
 
 	function showPlayerError() { }
 
-	return { showPlayerError, updateVideoGrid, renderVideo };
+	return { playPrev, playNext, showPlayerError, updateVideoGrid, renderVideo };
 })();
 
 /* -------------------- Keyboard Shortcuts -------------------- */
@@ -168,6 +199,12 @@ function setupKeyboardShortcuts(videoElGetter = () => playerElement) {
 					vid.playbackRate = Math.max(0.25, (vid.playbackRate ?? 1) - 0.25);
 				break;
 
+			case "n":
+				UtilsModule.playNext();
+				break;
+			case "p":
+				UtilsModule.playPrev();
+				break;
 			default:
 				// number keys 0..9 -> jump to percent
 				if (!isNaN(e.key)) {
@@ -184,26 +221,36 @@ function setupKeyboardShortcuts(videoElGetter = () => playerElement) {
 
 /* -------------------- Player Module -------------------- */
 const PlayerModule = (() => {
-	function initialize() {
+	function initialize(playOnDone = false) {
 		if (!videoId) {
 			UtilsModule.showPlayerError("Error: No video ID provided");
 			return;
 		}
 
+		currentVideoData = videos.find((i) => i.id === videoId);
+		const newUrl = new URL(window.location.href);
+		newUrl.searchParams.set("id", videoId);
+		window.history.pushState({ path: newUrl.href }, "", newUrl.href);
+
 		playerInitialized = false;
 		downloadBtn.setAttribute("href", `/api/video?video_id=${videoId}`);
 
-		renderPlayer();
+		renderPlayer(playOnDone);
+		setVideoInfo();
 	}
 
-	function renderPlayer() {
-		if (!playerElement) return;
+	function renderPlayer(playOnDone) {
+		if (!playerElement || !(playerElement instanceof HTMLVideoElement)) return;
 
-		const videoUrl = `${window.location.origin}/api/video?video_id=${videoId}`;
+		const videoUrl = `/api/video?video_id=${videoId}`;
+		const thumbnailUrl = `/api/thumbnail?video_id=${videoId}`;
 		playerElement.src = videoUrl;
+		playerElement.poster = thumbnailUrl;
 
 		playerElement.onloadedmetadata = () => {
 			window.scroll(0, 0, { bahaviour: "smooth" });
+			playerElement.focus();
+			playOnDone && playerElement.play();
 		};
 
 		playerElement.onerror = (e) => {
@@ -301,10 +348,112 @@ const PlayerModule = (() => {
 
 		const actionButtons = [
 			{
-				content: `<i class="fa-solid fa-angle-down"></i>`,
-				props: [
-					{ key: "title", value: "Scroll to the video item in grid" },
+				content: `<i class="fa-solid fa-pen"></i>`,
+				props: [{ key: "title", value: "Edit video info" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: () => {
+							let content = `
+<h1>Edit</h1>
+<form>
+    <label for="title-update">Title</label>
+    <input type="text" name="title" id="title-update"
+           placeholder="New Video Title..." autocomplete="nope">
+    <button id="submit" class="cool-button" type="submit">
+        Update!
+    </button>
+</form>
+`;
+
+							showModal({
+								content,
+								applyFn: (modal, closeModal) => {
+									const formEl = modal.querySelector("form");
+									const submitBtn = modal.querySelector("#submit");
+
+									formEl.addEventListener("submit", async (e) => {
+										e.preventDefault();
+
+										const data = Object.fromEntries(
+											new FormData(e.currentTarget).entries(),
+										);
+
+										submitBtn.disabled = true;
+										submitBtn.textContent = "Updating…";
+
+										try {
+											const res = await fetch(
+												`/api/video?video_id=${videoId}`,
+												{
+													method: "PATCH",
+													headers: {
+														"Content-Type": "application/json",
+													},
+													body: JSON.stringify(data),
+												},
+											);
+
+											if (!res.ok) throw new Error();
+
+											MainModule.showToast("Success!", "success");
+											setTimeout(() => closeModal() || window.location.reload(), 600);
+										} catch (err) {
+											console.error(err);
+											MainModule.showToast("Failed!", "danger");
+											submitBtn.disabled = false;
+											submitBtn.textContent = "Update!";
+										}
+									});
+
+									modal.style.width = "50dvw";
+								},
+							});
+						},
+					},
 				],
+				postFunc: null,
+			},
+			{
+				content: `<i class="fa-solid fa-backward-step"></i>`,
+				props: [{ key: "title", value: "Play previous video (if present)" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: UtilsModule.playPrev,
+					},
+				],
+				postFunc: null,
+			},
+			{
+				content: `<i class="fa-solid fa-forward-step"></i>`,
+				props: [{ key: "title", value: "Play next video (if present)" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: UtilsModule.playNext,
+					},
+				],
+				postFunc: null,
+			},
+			{
+				content: `<i class="fa-solid fa-recycle"></i>`,
+				props: [{ key: "title", value: "Reload current videos thumbnail" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: () => {
+							fetch(`/api/thumbnail/${videoId}`, { method: "PATCH" }).then(
+								(res) => res.ok && window.location.reload(),
+							);
+						},
+					},
+				],
+				postFunc: null,
+			},
+			{
+				content: `<i class="fa-solid fa-angle-down"></i>`,
+				props: [{ key: "title", value: "Scroll to the video item in grid" }],
 				eventListeners: [
 					{
 						event: "click",
@@ -339,6 +488,29 @@ const PlayerModule = (() => {
 					},
 				],
 				postFunc: null,
+			},
+			{
+				content: `<i class="fa-regular fa-circle-right"></i>`,
+				props: [{ key: "title", value: "Auto play next video" }],
+				eventListeners: [
+					{
+						event: "click",
+						handler: (ev) => {
+							ev.currentTarget.classList.toggle("active");
+							const isAutoPlay = ev.currentTarget.classList.contains("active");
+							ev.currentTarget.innerHTML = `<i class="fa-${isAutoPlay ? "solid" : "regular"} fa-circle-right"></i>`;
+							const videoElem = document.querySelector("video");
+
+							if (isAutoPlay) {
+								console.log("Autoplay enabled");
+								videoElem.addEventListener("ended", UtilsModule.playNext);
+							} else {
+								console.log("Autoplay disabled");
+								videoElem.removeEventListener("ended", UtilsModule.playNext);
+							}
+						},
+					},
+				],
 			},
 			{
 				content: `<i class="fa-solid fa-link"></i>`,
@@ -827,7 +999,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 	const sortSelected = document.getElementById("sort-selected");
 	const sortOptions = document.querySelectorAll(".sort-option");
 	const sortByInput = document.getElementById("sortBy"); // toggle dropdown
-	const resetButton = filterDropdown.querySelector('[type="reset"]')
+	const resetButton = filterDropdown.querySelector('[type="reset"]');
 
 	resetButton?.addEventListener("click", () => {
 		const data = {
@@ -839,7 +1011,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 		};
 		applySorting(data);
 		filterDropdown.classList.remove("show");
-	})
+	});
 
 	filterDropdownToggle.addEventListener("click", () => {
 		filterDropdownToggle.classList.toggle("active");

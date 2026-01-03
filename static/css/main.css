@@ -144,7 +144,7 @@ upper {
 }
 
 @media (max-width: 400px) {
-	.video-grid {
+	.video-grid, .container {
 		width: initial;
 	}
 }

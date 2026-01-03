@@ -20,13 +20,20 @@ from src.utils.video_processing import generate_video_info
 
 # Helper functions
 def convert_db_to_response(db_entry: VideosDataBase, include_extras: bool = False) -> VideoResponse:
+    extras = {}
+    for name, value in (db_entry.extras or {}).items():
+        if str(name).startswith("update_") or not include_extras:
+            continue
+
+        extras[name] = value
+
     return VideoResponse(
         id=db_entry.id,
         title=db_entry.title,
         duration=db_entry.duration,
         filesize=db_entry.filesize,
         modified_time=db_entry.modified_time,
-        extras=db_entry.extras if include_extras else {},
+        extras=extras,
     )
 
 

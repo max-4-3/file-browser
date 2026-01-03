@@ -283,9 +283,9 @@ export function saveSortingConfig(sortingState) {
 
 export function applyFilters(filters, videos) {
 	let localVideos = [...videos];
-	filterVideos(localVideos, filters)
-	sortVideos(localVideos, filters)
-	saveSortingConfig(filters)
+	filterVideos(localVideos, filters);
+	sortVideos(localVideos, filters);
+	saveSortingConfig(filters);
 	return localVideos;
 }
 
@@ -328,8 +328,8 @@ function sortVideos(videos, filters) {
 		const B = keyFunc(b);
 
 		if (filters.favFirst) {
-			const aFav = MainModule.isFavourite(a.id)
-			const bFav = MainModule.isFavourite(b.id)
+			const aFav = MainModule.isFavourite(a.id);
+			const bFav = MainModule.isFavourite(b.id);
 
 			if (aFav !== bFav) return aFav ? -1 : 1;
 		}
@@ -378,6 +378,42 @@ export function getUserName() {
 
 export function setUserName(userName) {
 	userName ? localStorage.setItem("login", userName) : {};
+}
+
+export function showModal({ content = "", applyFn = () => { }, onClose = () => { } }) {
+	const modalContainer = document.createElement("div");
+	modalContainer.classList.add("modal");	// This has inset: 0 (meaning it will conver the entire screen)
+
+	const modalContent = document.createElement("div");
+	modalContent.classList.add('modal-content');
+	modalContent.innerHTML = content;
+
+
+	modalContainer.appendChild(modalContent);
+	document.body.classList.add("modal-shown");
+	document.body.appendChild(modalContainer);
+	applyFn(modalContent, closeModal);
+
+	const clickHandler = (e) => {
+		if (e.target === modalContainer) {
+			closeModal();
+		}
+	};
+
+	function closeModal() {
+		document.body.classList.remove("modal-shown");
+		modalContainer.remove();
+		window.removeEventListener("click", clickHandler);
+		window.removeEventListener("keydown", escHandler);
+		onClose(modalContainer);
+	}
+
+	const escHandler = (e) => {
+		if (e.key === "Escape") closeModal();
+	};
+
+	setTimeout(() => window.addEventListener("click", clickHandler));
+	window.addEventListener("keydown", escHandler);
 }
 
 export function loginUser() {

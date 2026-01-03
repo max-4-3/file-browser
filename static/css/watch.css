@@ -51,12 +51,10 @@
 	background: white;
 	padding: 2rem;
 	border-radius: 1rem;
-	text-align: center;
 	color: var(--darker);
 	display: flex;
 	flex-direction: column;
 	gap: var(--space-lg);
-	font-size: var(--text-lg);
 	font-weight: bold;
 }
 
@@ -143,6 +141,7 @@
 	justify-content: center;
 	align-items: center;
 	padding: var(--space-sm);
+	flex-wrap: wrap;
 }
 
 .video-loading {
@@ -284,3 +283,8 @@
 	}
 }
 
+@media (max-width: 400px) {
+	.video-container {
+		width: initial;
+	}
+}
