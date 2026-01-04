@@ -19,7 +19,9 @@ from src.utils.video_processing import generate_video_info
 
 
 # Helper functions
-def convert_db_to_response(db_entry: VideosDataBase, include_extras: bool = False) -> VideoResponse:
+def convert_db_to_response(
+    db_entry: VideosDataBase, include_extras: bool = False
+) -> VideoResponse:
     extras = {}
     for name, value in (db_entry.extras or {}).items():
         if str(name).startswith("update_") or not include_extras:
@@ -57,7 +59,7 @@ def discover_files(
 
             # `file` is valid and we should add it
             progress_callback(file)
-            discovered_files.append(file)
+            discovered_files.append(file.expanduser())  # ~ -> expand it
 
     return discovered_files
 
@@ -74,7 +76,9 @@ async def create_modals(
 
     async def proc_wrapper(fp: Path):
         try:
-            result = await generate_video_info(sem, str(fp.resolve().absolute()))
+            result = await generate_video_info(
+                sem, str(fp.expanduser().absolute())      # skip resolving and add absolute path
+            )
             progress_callback()
             return result
         except Exception as e:
@@ -207,15 +211,29 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
             prev_db_data = session.exec(select(VideosDataBase)).all()
             filename_exists = []
 
+            def valid_file(path: Path) -> bool:
+                valid_file_rules = [
+                    lambda: path.exists(),
+                    lambda: path.suffix in ALLOWED_FILES,
+                    lambda: path.is_symlink()
+                    or any(path.is_relative_to(_root_path) for _root_path in ROOT_DIRS),
+                ]
+                return all(map(lambda x: x(), valid_file_rules))
+
             for data_old in prev_db_data:
                 vid_path = Path(data_old.video_path)
-                if (
-                    not vid_path.exists()
-                    or vid_path.suffix not in ALLOWED_FILES
-                    or not any(
-                        vid_path.is_relative_to(_root_path) for _root_path in ROOT_DIRS
-                    )
-                ):
+                # if (
+                #     not vid_path.exists()
+                #     or vid_path.suffix not in ALLOWED_FILES
+                #     or (
+                #         not vid_path.is_symlink()
+                #         or not any(
+                #             vid_path.is_relative_to(_root_path)
+                #             for _root_path in ROOT_DIRS
+                #         )
+                #     )
+                # ):
+                if not valid_file(vid_path):
                     try:
                         data_old.delete_thumb()
                     except:

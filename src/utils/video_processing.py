@@ -4,6 +4,8 @@ import os
 from hashlib import sha512
 from pathlib import Path
 from uuid import uuid4
+from collections.abc import Mapping
+
 from src import THUMB_PATH, PERFORMANCE
 from src.models import VideosDataBase
 
@@ -13,6 +15,73 @@ def convert_time(time_float: float) -> str:
     minutes = total_seconds // 60
     secs = total_seconds % 60
     return f"{minutes:02}:{secs:02}"
+
+
+def create_extras(ffprobe: dict) -> dict:
+    #fmt: off
+    stream_keys = [
+        "id",                 # 0x1 (str)
+        "index",              # 0 (int)
+        "codec_type",         # video
+        "codec_name",         # h264
+        "codec_long_name",    # H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+        "profile",            # Main
+        "codec_tag_string",   # avc1
+        "is_avc",             # "true" (str)
+        "width",              # 1920 (int)
+        "height",             # 1080 (int)
+        "pix_fmt",            # yuv420p
+        "level",              # 40 (int, can be -ve)
+        "has_b_frames",       # 0 (int)
+        "r_frame_rate",       # 25/1 (str)
+        "avg_frame_rate",     # number/number (str)
+        "start_time",         # 0.00 (str)
+        "duration",           # float (str)
+        "start_pts",          # 20 (int)
+        "duration_ts",        # 12290291 (int)
+        "bit_rate",           # 1213131 (str)
+        "tags",               # {...}
+    ]
+    format_keys = [
+        "format_name",        # mov,mp4,m4a,3gp,3g2,mj2
+        "format_long_name",   # QuickTime / MOV
+        "start_time",         # 0.0 (str)
+        "duration",           # float (str)
+        "size",               # int (str)
+        "bit_rate",           # int (str)
+        "probe_score",        # int
+        "tags",               # {...}
+    ]
+    disp_keys = [
+        "attached_pic",       # int (0/1)
+        "still_image",        # int (0/1)
+        "metadata",           # int (0/1)
+    ]
+    #fmt: on
+
+    def pick_attrs(obj: object, *keys: str, default=None) -> dict:
+        data = {}
+        if isinstance(obj, Mapping):
+            get_key = obj.get
+        else:
+            get_key = lambda key: getattr(obj, key)
+
+        for key in keys:
+            value = get_key(key)
+            data[key] = default if value is None else value
+
+        return data
+
+    streams = []
+    for stream in ffprobe.get("streams") or []:
+        disp = pick_attrs(stream.get("disposition") or {}, *disp_keys)
+
+        streams.append({**pick_attrs(stream, *stream_keys), "disposition": disp})
+
+    format = pick_attrs(ffprobe.get("format"), *format_keys)
+    del ffprobe["streams"], ffprobe["format"]
+
+    return {"streams": streams, "format": format, **ffprobe}
 
 
 def is_likely_static_image(stream):
@@ -147,5 +216,5 @@ async def generate_video_info(
             duration=duration,
             filesize=size,
             modified_time=_vid_path.stat().st_mtime,
-            extras=video_probe
+            extras=create_extras(ffprobe=video_probe),
         )
