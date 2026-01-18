@@ -121,6 +121,9 @@ const UtilsModule = (() => {
 function setupKeyboardShortcuts(videoElGetter = () => playerElement) {
 	if (keyboardShortcutsBound) return;
 	keyboardShortcutsBound = true;
+	const shiftMod = 5;
+	const normalMod = 10;
+	const ctrlMod = 60;
 
 	document.addEventListener("keydown", (e) => {
 		// Ignore shortcuts while typing in inputs/textareas/selects/contenteditable
@@ -131,6 +134,10 @@ function setupKeyboardShortcuts(videoElGetter = () => playerElement) {
 		) {
 			return;
 		}
+
+		const step = normalMod;
+		if (e.shiftMod) step = shiftMod
+		else if (e.ctrlKey) step = ctrlMod
 
 		const vid = videoElGetter();
 		if (!vid) return;
@@ -145,24 +152,13 @@ function setupKeyboardShortcuts(videoElGetter = () => playerElement) {
 				break;
 
 			case "ArrowLeft":
-				vid.currentTime = Math.max(0, vid.currentTime - 5);
+				vid.currentTime = Math.max(0, vid.currentTime - step);
 				break;
 
 			case "ArrowRight":
 				vid.currentTime = Math.min(
 					vid.duration || Infinity,
-					vid.currentTime + 5,
-				);
-				break;
-
-			case "j":
-				vid.currentTime = Math.max(0, vid.currentTime - 10);
-				break;
-
-			case "l":
-				vid.currentTime = Math.min(
-					vid.duration || Infinity,
-					vid.currentTime + 10,
+					vid.currentTime + step,
 				);
 				break;
 
