@@ -397,7 +397,10 @@ const PlayerModule = (() => {
 											if (!res.ok) throw new Error();
 
 											MainModule.showToast("Success!", "success");
-											setTimeout(() => closeModal() || window.location.reload(), 600);
+											setTimeout(
+												() => closeModal() || window.location.reload(),
+												600,
+											);
 										} catch (err) {
 											console.error(err);
 											MainModule.showToast("Failed!", "danger");
@@ -629,13 +632,6 @@ const PlayerModule = (() => {
 			return;
 		}
 
-		if (!navigator.clipboard?.writeText) {
-			parentElem.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Can't Copy!`;
-			parentElem.style.background = "var(--danger)";
-			onFailure?.(Error("Clipboard API not available"));
-			return;
-		}
-
 		const copyInfo = typeof infoGetter === "function" ? infoGetter() : "";
 
 		if (typeof copyInfo !== "string" || !copyInfo.trim()) {
@@ -646,23 +642,67 @@ const PlayerModule = (() => {
 		const originalContent = parentElem.innerHTML;
 		parentElem.disabled = true;
 
-		navigator.clipboard
-			.writeText(copyInfo)
-			.then(() => {
-				parentElem.innerHTML = `<i class="fa-solid fa-copy"></i> Copied!`;
-				onSuccess?.();
-			})
-			.catch((err) => {
-				parentElem.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Error!`;
-				onFailure?.(err);
-			})
-			.finally(() => {
-				clearTimeout(parentElem.copyTimeout);
-				parentElem.copyTimeout = setTimeout(() => {
-					parentElem.innerHTML = originalContent;
-					parentElem.disabled = false;
-				}, 2000);
-			});
+		const success = () => {
+			parentElem.innerHTML = `<i class="fa-solid fa-copy"></i> Copied!`;
+			onSuccess?.();
+		};
+
+		const failure = (err) => {
+			parentElem.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> Error!`;
+			onFailure?.(err);
+		};
+
+		const cleanup = () => {
+			clearTimeout(parentElem.copyTimeout);
+			parentElem.copyTimeout = setTimeout(() => {
+				parentElem.innerHTML = originalContent;
+				parentElem.disabled = false;
+			}, 2000);
+		};
+
+		/* ---------- MODERN API ---------- */
+		if (navigator.clipboard?.writeText) {
+			navigator.clipboard
+				.writeText(copyInfo)
+				.then(success)
+				.catch(() => {
+					// fallback if modern API exists but fails (permissions, http, etc.)
+					tryLegacyCopy(copyInfo, success, failure);
+				})
+				.finally(cleanup);
+			return;
+		}
+
+		/* ---------- LEGACY FALLBACK ---------- */
+		tryLegacyCopy(copyInfo, success, failure);
+		cleanup();
+	}
+
+	/* ===== Legacy copy for older / lower devices ===== */
+	function tryLegacyCopy(text, onSuccess, onFailure) {
+		try {
+			const textarea = document.createElement("textarea");
+			textarea.value = text;
+
+			// prevent scrolling / zoom issues
+			textarea.style.position = "fixed";
+			textarea.style.top = "-1000px";
+			textarea.style.left = "-1000px";
+			textarea.style.opacity = "0";
+
+			document.body.appendChild(textarea);
+			textarea.focus();
+			textarea.select();
+
+			const ok = document.execCommand("copy");
+			document.body.removeChild(textarea);
+
+			if (!ok) throw new Error("execCommand failed");
+
+			onSuccess?.();
+		} catch (err) {
+			onFailure?.(err);
+		}
 	}
 
 	function copyVidInfo(elem) {
