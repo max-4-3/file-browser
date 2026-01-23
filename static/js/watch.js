@@ -135,7 +135,7 @@ function setupKeyboardShortcuts(videoElGetter = () => playerElement) {
 			return;
 		}
 
-		const step = normalMod;
+		let step = normalMod;
 		if (e.shiftMod) step = shiftMod
 		else if (e.ctrlKey) step = ctrlMod
 
