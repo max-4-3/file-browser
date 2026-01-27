@@ -1,16 +1,17 @@
 import asyncio
-import json
-import os
-from hashlib import sha512
-from pathlib import Path
-from uuid import uuid4
 from collections.abc import Mapping
+from hashlib import sha512
+import json
+from pathlib import Path
+from typing import Optional
+from uuid import uuid4
 
-from src import THUMB_PATH, PERFORMANCE
+from src.config import PERFORMANCE, THUMB_DIR
 from src.models import VideosDataBase
 
 
 def convert_time(time_float: float) -> str:
+    """120.0 -> 02:00"""
     total_seconds = max(int(time_float), 0)
     minutes = total_seconds // 60
     secs = total_seconds % 60
@@ -79,8 +80,6 @@ def create_extras(ffprobe: dict) -> dict:
         streams.append({**pick_attrs(stream, *stream_keys), "disposition": disp})
 
     format = pick_attrs(ffprobe.get("format"), *format_keys)
-    del ffprobe["streams"], ffprobe["format"]
-
     return {"streams": streams, "format": format, **ffprobe}
 
 
@@ -101,120 +100,132 @@ def is_likely_static_image(stream):
 
 
 async def generate_thumbnail(
-    vid_path: str,
+    vid_path: str | Path,
     stream_idx: int,
     vid_duration: str | float,
-    root_path: str | None = None,
+    root_path: Path | str | None = None,
     file_name_prefix: str = "thumbnail_",
-):
+) -> Optional[Path]:
+    """Generates a thumbnail from vid_path, fully resolves the vid_path and returns a fully resolved Path on success"""
+    vid_path = Path(vid_path).expanduser().resolve()
+    root_path = Path(root_path or THUMB_DIR or Path.cwd()).expanduser().resolve()
+    root_path.mkdir(parents=True, exist_ok=True)
 
-    root_path = root_path or THUMB_PATH
-
-    os.makedirs(root_path, exist_ok=True)
-    output_path = os.path.join(
-        root_path or os.getcwd(),
-        # Add .webp for faster loading (client side) & less storage
-        file_name_prefix + uuid4().hex + (".webp" if PERFORMANCE else ".png"),
+    # Add .webp for faster loading (client side) & less storage
+    output_path = root_path / (
+        file_name_prefix + uuid4().hex + (PERFORMANCE and ".webp" or ".png")
     )
+
+    # Prepare the command base
+    cmd: list = ["ffmpeg", "-hide_banner", "-y"]
 
     if stream_idx < -1:
         # Fast seek before input
-        midpoint = str(int(float(vid_duration) / 2))
-        cmd = [
-            "ffmpeg",
-            "-ss",
-            midpoint,
-            "-t",
-            "1",  # Optional: only decode 1s
-            "-i",
-            vid_path,
-            "-frames:v",
-            "1",
-            "-y",
-            output_path,
-        ]
+        midpoint = float(vid_duration) / 2
+        cmd.extend(
+            [
+                "-ss",
+                midpoint,
+                "-t",
+                "1",  # Optional: only decode 1s
+                "-i",
+                vid_path,
+                "-frames:v",
+                "1",
+            ]
+        )
     else:
         # Stream index selection — no midpoint
-        cmd = [
-            "ffmpeg",
-            "-i",
-            vid_path,
-            "-map",
-            f"0:{stream_idx}",
-            "-frames:v",
-            "1",
-            "-y",
-            output_path,
-        ]
+        cmd.extend(
+            [
+                "-i",
+                vid_path,
+                "-map",
+                f"0:{stream_idx}",
+            ]
+        )
 
     if PERFORMANCE:
         # Scales the image down to 640 (maintaing ar)
-        optimization = ["-vf", "scale=640:-1"]
-        # Add optimization before output
-        cmd = cmd[:-1] + optimization + [cmd[-1]]
+        cmd.extend(["-vf", "scale=640:-1"])
 
+    # Append output and other to cmd
+    cmd.extend(["-frames:v", "1", output_path])
+
+    # Run the command
     process = await asyncio.create_subprocess_exec(
-        *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+        *map(str, cmd),
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
     )
     await process.wait()
-    return output_path if os.path.exists(output_path) else None
+    return output_path if output_path.exists() else None
+
+
+async def probe_video(vid_path: Path | str) -> bytes:
+    """Uses ffprobe to probe the given the video and returns the process output as is"""
+    vid_path = Path(vid_path).expanduser().resolve()
+
+    format_command = [
+        "ffprobe",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        "-select_streams",
+        "v",
+        "-show_entries",
+        "stream_tags:format_tags",
+        "-v",
+        "quiet",
+        vid_path,
+    ]
+
+    proc = await asyncio.create_subprocess_exec(
+        *map(str, format_command),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+
+    if proc.returncode != 0:
+        raise Exception(f"FFprobe failed on {vid_path}")
+
+    return stdout or stderr or b""
 
 
 async def generate_video_info(
-    sem: asyncio.Semaphore, vid_path: str
+    sem: asyncio.Semaphore, vid_path: Path | str
 ) -> VideosDataBase | None:
 
     async with sem:
-        _vid_path = Path(vid_path)
+        probe = await probe_video(vid_path)
 
-        format_command = [
-            "ffprobe",
-            "-print_format",
-            "json",
-            "-show_format",
-            "-show_streams",
-            "-select_streams",
-            "v",
-            "-show_entries",
-            "stream_tags:format_tags",
-            "-v",
-            "quiet",
-            vid_path,
-        ]
+    vid_path = Path(vid_path).expanduser().resolve()
+    video_probe = json.loads(probe.decode(errors="ignore"))
+    format_info = video_probe.get("format", {})
+    duration = int(float(format_info.get("duration", 0)))
+    size = int(format_info.get("size", 0))
 
-        proc = await asyncio.create_subprocess_exec(
-            *format_command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
+    # find likely static image stream
+    thumb_stream_index = -2
+    for stream in video_probe.get("streams", []):
+        if is_likely_static_image(stream):
+            thumb_stream_index = int(stream["index"])
+            break
 
-        if proc.returncode != 0:
-            raise Exception(f"FFprobe failed on {vid_path}")
+    thumb_path = await generate_thumbnail(vid_path, thumb_stream_index, duration)
+    if not thumb_path:
+        raise OSError("Thumbnail generation failed")
 
-        video_probe = json.loads((stdout or stderr or b"{}").decode(errors="ignore"))
-        format_info = video_probe.get("format", {})
-        duration = int(float(format_info.get("duration", 0)))
-        size = int(format_info.get("size", 0))
-
-        # find likely static image stream
-        thumb_stream_index = -2
-        for stream in video_probe.get("streams", []):
-            if is_likely_static_image(stream):
-                thumb_stream_index = int(stream["index"])
-                break
-
-        thumb_path = await generate_thumbnail(vid_path, thumb_stream_index, duration)
-        if not thumb_path:
-            raise OSError("Thumbnail generation failed")
-
-        return VideosDataBase(
-            id=sha512((vid_path + thumb_path).encode()).hexdigest(),
-            title=_vid_path.stem,
-            video_path=vid_path,
-            thumbnail_path=thumb_path,
-            duration=duration,
-            filesize=size,
-            modified_time=_vid_path.stat().st_mtime,
-            extras=create_extras(ffprobe=video_probe),
-        )
+    # Both `vid_path` & `thumb_path` are expanded and resolved
+    return VideosDataBase(
+        id=sha512((str(vid_path) + str(thumb_path)).encode()).hexdigest(),
+        title=vid_path.stem,
+        video_path=str(vid_path),
+        thumbnail_path=str(thumb_path),
+        duration=duration,
+        filesize=size,
+        modified_time=vid_path.stat().st_mtime,
+        extras=create_extras(ffprobe=video_probe),
+    )

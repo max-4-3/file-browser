@@ -1,8 +1,10 @@
+from typing import Generator, Protocol
+
+from sqlmodel import Session, create_engine
+
+from src.config import DATA_DIR
 from src.data_store import create_engine_url, create_models
-from sqlmodel import create_engine, Session
-from src.models import SQLModel, DeletedVideo
-from src import DATA_FOLDER
-from typing import Protocol, Generator
+from src.models import DeletedVideo, SQLModel
 
 
 class DataBaseSession(Protocol):
@@ -11,7 +13,7 @@ class DataBaseSession(Protocol):
 
 class NormalSession:
     def __init__(self):
-        self.db_url = create_engine_url("videostore.db", DATA_FOLDER)
+        self.db_url = create_engine_url("videostore.db", DATA_DIR)
         self.engine = create_engine(self.db_url)
         create_models(SQLModel, self.engine, excludes=[DeletedVideo])
 
@@ -22,7 +24,7 @@ class NormalSession:
 
 class DeletedVideosSession:
     def __init__(self):
-        self.db_url = create_engine_url("deleted_videos.db", DATA_FOLDER)
+        self.db_url = create_engine_url("deleted_videos.db", DATA_DIR)
         self.engine = create_engine(self.db_url)
         create_models(SQLModel, self.engine, includes=[DeletedVideo])
 

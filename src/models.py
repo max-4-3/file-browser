@@ -1,8 +1,9 @@
-from typing import Optional
-from sqlmodel import SQLModel, Column, JSON, Field
-from pydantic import BaseModel
-import os
 from datetime import datetime
+import os
+from typing import Optional
+
+from pydantic import BaseModel
+from sqlmodel import Column, Field, JSON, SQLModel
 
 
 class VideosDataBase(SQLModel, table=True):

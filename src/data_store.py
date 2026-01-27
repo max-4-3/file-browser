@@ -1,6 +1,8 @@
-from src.models import SQLModel
-from sqlalchemy.engine import Engine
 from pathlib import Path
+
+from sqlalchemy.engine import Engine
+
+from src.models import SQLModel
 
 
 def create_models(

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from fastapi import Body, Header
-from sqlalchemy.sql.base import SchemaEventTarget
+import json
+from fastapi import Header
 from src.models import (
     DeletedVideo,
     VideoResponse,
@@ -22,6 +22,7 @@ from src.api import (
     VideoInfoNotFound,
     FileNotFoundOnServer,
 )
+from src.utils.video_processing import probe_video
 
 
 @router.get("/deleted")
@@ -182,3 +183,26 @@ async def get_stat(
         raise FileNotFoundOnServer()
 
     return convert_db_to_response(video_server, extras)
+
+
+@router.patch("/stats")
+async def patch_stats(
+    video_id: str, session: Session = Depends(normal_session.get_session)
+):
+    video_server = session.exec(
+        select(VideosDataBase).where(VideosDataBase.id == video_id)
+    ).first()
+
+    if not video_server:
+        raise VideoInfoNotFound(video_id)
+
+    if not video_server.exist():
+        raise FileNotFoundOnServer()
+
+    video_server.extras = json.loads(
+        await probe_video(vid_path=video_server.video_path)
+    )
+    session.commit()
+    session.refresh(video_server)
+
+    return True

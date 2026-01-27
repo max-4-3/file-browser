@@ -13,9 +13,20 @@ from rich.progress import (
 )
 from sqlmodel import Session, select
 
-from src import ALLOWED_FILES, ROOT_DIRS
+from src.config import ALLOWED_FILES, ROOT_DIRS
 from src.models import VideoResponse, VideosDataBase
 from src.utils.video_processing import generate_video_info
+
+
+PROGRESS_COLUMNS = [
+    TextColumn("[progress.description]{task.description}"),
+    BarColumn(),
+    MofNCompleteColumn(),
+    TextColumn("•"),
+    TimeElapsedColumn(),
+    TextColumn("•"),
+    TimeRemainingColumn(),
+]
 
 
 # Helper functions
@@ -46,7 +57,8 @@ def discover_files(
     discovered_files: list[Path] = []
 
     for root_dir in ROOT_DIRS:
-        root_dir = Path(root_dir)
+        # Exapands
+        root_dir = Path(root_dir).expanduser().resolve()
 
         # iter through `root_dir` files
         for file in root_dir.rglob("*"):
@@ -59,7 +71,7 @@ def discover_files(
 
             # `file` is valid and we should add it
             progress_callback(file)
-            discovered_files.append(file.expanduser())  # ~ -> expand it
+            discovered_files.append(file)
 
     return discovered_files
 
@@ -77,7 +89,8 @@ async def create_modals(
     async def proc_wrapper(fp: Path):
         try:
             result = await generate_video_info(
-                sem, str(fp.expanduser().absolute())      # skip resolving and add absolute path
+                sem,
+                fp,
             )
             progress_callback()
             return result
@@ -108,15 +121,7 @@ def add_modals_to_db(
 
 
 async def make_data(session: Session):
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-        TextColumn("•"),
-        TimeRemainingColumn(),
-    ) as progress_bar:
+    with Progress(*PROGRESS_COLUMNS) as progress_bar:
 
         # Video discovery task
         video_discovery_task = progress_bar.add_task(
@@ -167,15 +172,7 @@ async def make_data(session: Session):
 
 
 async def reload_data(session: Session, hard_reload: bool = False) -> bool:
-    with Progress(
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TextColumn("•"),
-        TimeElapsedColumn(),
-        TextColumn("•"),
-        TimeRemainingColumn(),
-    ) as progress_bar:
+    with Progress(*PROGRESS_COLUMNS) as progress_bar:
 
         if hard_reload:
             progress_bar.console.print(
@@ -211,29 +208,22 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
             prev_db_data = session.exec(select(VideosDataBase)).all()
             filename_exists = []
 
-            def valid_file(path: Path) -> bool:
+            def should_keep(path: Path) -> bool:
                 valid_file_rules = [
                     lambda: path.exists(),
                     lambda: path.suffix in ALLOWED_FILES,
                     lambda: path.is_symlink()
                     or any(path.is_relative_to(_root_path) for _root_path in ROOT_DIRS),
                 ]
-                return all(map(lambda x: x(), valid_file_rules))
+                return all(map(lambda rule: rule(), valid_file_rules))
 
             for data_old in prev_db_data:
-                vid_path = Path(data_old.video_path)
-                # if (
-                #     not vid_path.exists()
-                #     or vid_path.suffix not in ALLOWED_FILES
-                #     or (
-                #         not vid_path.is_symlink()
-                #         or not any(
-                #             vid_path.is_relative_to(_root_path)
-                #             for _root_path in ROOT_DIRS
-                #         )
-                #     )
-                # ):
-                if not valid_file(vid_path):
+                vid_path = Path(data_old.video_path).expanduser().resolve()
+
+                if should_keep(vid_path):
+                    filename_exists.append(vid_path.stem)
+                else:
+                    progress_bar.console.print(vid_path, data_old.video_path)
                     try:
                         data_old.delete_thumb()
                     except:
@@ -245,8 +235,6 @@ async def reload_data(session: Session, hard_reload: bool = False) -> bool:
 
                     session.delete(data_old)
                     continue
-
-                filename_exists.append(vid_path.stem)
 
             session.commit()
 
