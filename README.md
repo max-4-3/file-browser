@@ -1,6 +1,7 @@
-![Preview]("./res/preview.png")
-
 # file-browser 🎬
+
+![Preview](./res/preview.png)
+
 Hey — this is a tiny personal project I made to browse and watch videos on my local network. It's a cozy video gallery, not a full-featured file manager. I built it to be simple and mostly offline-friendly.
 
 Status: In development but mostly complete — for local/network use only. 🙂
