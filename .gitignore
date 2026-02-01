@@ -18,3 +18,5 @@ wheels/
 .thumbs/*
 temp*
 data/*
+
+!res/*.png
